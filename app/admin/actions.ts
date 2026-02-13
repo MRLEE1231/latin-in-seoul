@@ -149,7 +149,7 @@ export async function updatePost(formData: FormData) {
   redirect('/admin');
 }
 
-export async function deletePost(id: number) {
+export async function deletePost(id: number, options?: { skipRevalidate?: boolean }) {
   // Find the post and its images first to delete actual files
   const post = await prisma.post.findUnique({
     where: { id },
@@ -175,6 +175,26 @@ export async function deletePost(id: number) {
   await prisma.post.delete({
     where: { id },
   });
+
+  if (!options?.skipRevalidate) {
+    revalidatePath('/posts');
+    revalidatePath('/admin');
+  }
+}
+
+export async function bulkDeletePosts(formData: FormData) {
+  const rawIds = formData.getAll('ids');
+  const ids = rawIds
+    .map((v) => Number(typeof v === 'string' ? v : String(v)))
+    .filter((n) => !isNaN(n));
+
+  if (ids.length === 0) {
+    return;
+  }
+
+  for (const id of ids) {
+    await deletePost(id, { skipRevalidate: true });
+  }
 
   revalidatePath('/posts');
   revalidatePath('/admin');

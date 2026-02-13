@@ -17,6 +17,20 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+
+  input,
+  textarea,
+  select {
+    /* 다크 모드에서도 라이트 모드처럼 진한 글자 + 흰 배경 */
+    color: #111827;            /* text-gray-900 */
+    background-color: #ffffff; /* 흰색 입력란 */
+    border-color: #d1d5db;     /* border-gray-300 */
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af; /* placeholder-gray */
+  }
 }
 
 body {

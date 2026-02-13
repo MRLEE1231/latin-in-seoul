@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import FilterSection from '@/app/components/FilterSection';
+import { getAdminSession } from '@/lib/auth';
 
 const REGION_OPTIONS: { label: string; value?: string }[] = [
   { label: '전체', value: undefined },
@@ -47,6 +48,19 @@ const dayMap: Record<string, string> = {
   SUN: '일',
 };
 
+function formatKeywords(keywords?: string | null, maxLength = 24) {
+  if (!keywords) return '';
+  const display = keywords
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => `#${s}`)
+    .join(' ');
+  if (!display) return '';
+  if (display.length <= maxLength) return display;
+  return display.slice(0, maxLength) + '…';
+}
+
 function buildHref(region?: string, danceType?: string, day?: string, keyword?: string) {
   const params = new URLSearchParams();
   if (region) params.set('region', region);
@@ -83,10 +97,24 @@ export default async function PostsPage({
     },
   });
 
+  const adminSession = await getAdminSession();
+
   return (
     <div className="container mx-auto px-4 pt-4 pb-10">
       <header className="mb-6 space-y-2">
-        <FilterSection>
+        <FilterSection
+          initialDetailed={Boolean(day || keyword)}
+          leftExtra={
+            adminSession ? (
+              <Link
+                href="/admin"
+                className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-600 hover:text-white transition-colors"
+              >
+                관리자 페이지로 이동
+              </Link>
+            ) : null
+          }
+        >
           {/* 지역 필터 */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-bold text-gray-400 w-8 shrink-0 whitespace-nowrap">지역</span>
@@ -252,9 +280,9 @@ export default async function PostsPage({
                 <h2 className="line-clamp-1 text-sm font-semibold text-gray-900">
                   {post.title || '제목 없음'}
                 </h2>
-                {post.instructorName && (
+                {formatKeywords((post as any).keywords) && (
                   <p className="mt-1 text-xs text-gray-600 flex items-center justify-between">
-                    <span>{post.instructorName}</span>
+                    <span>{formatKeywords((post as any).keywords)}</span>
                     {(post as any).classDays && (
                       <span className="text-[10px] text-slate-500 font-medium">
                         {(post as any).classDays.split(',').map((d: string) => dayMap[d]).join('·')}

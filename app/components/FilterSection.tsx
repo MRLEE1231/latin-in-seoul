@@ -4,14 +4,25 @@ import { useState, Children, cloneElement, isValidElement, ReactElement } from '
 
 const DETAILED_MARKER = 'detailed-only';
 
-export default function FilterSection({ children }: { children: React.ReactNode }) {
-  const [isDetailed, setIsDetailed] = useState(false);
+export default function FilterSection({
+  children,
+  initialDetailed = false,
+  leftExtra,
+}: {
+  children: React.ReactNode;
+  initialDetailed?: boolean;
+  leftExtra?: React.ReactNode;
+}) {
+  const [isDetailed, setIsDetailed] = useState(initialDetailed);
 
   const arrayChildren = Children.toArray(children);
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-h-[28px] flex items-center">
+          {leftExtra}
+        </div>
         <button
           type="button"
           onClick={() => setIsDetailed((prev) => !prev)}

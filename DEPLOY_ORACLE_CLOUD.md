@@ -151,7 +151,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a644 /etc/apt/keyrings/docker.asc
+sudo chmod 644 /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io
@@ -227,19 +227,30 @@ docker exec -it latin-app node /app/prisma/seed.mjs
 
 ---
 
-## 4. Nginx 리버스 프록시 (선택, 80/443 사용 시)
+## 4. 도메인 연결 + Nginx (80 포트, 선택)
+
+### 4.1 도메인 준비
+
+- **도메인 구매:** 가비아, Cloudflare, AWS Route 53, Namecheap 등에서 원하는 도메인 구매 (예: `latininseoul.com`).
+- **DNS 설정:** 구매한 곳의 DNS 관리에서 **A 레코드** 추가:
+  - **호스트/이름:** `@` (루트 도메인) 또는 `www` (서브도메인)
+  - **값/목표:** Oracle 인스턴스 **공인 IP** (예: `134.185.116.81`)
+  - **TTL:** 300~3600
+- 전파까지 5분~몇 시간 걸릴 수 있음. `nslookup your-domain.com` 으로 IP 확인.
+
+### 4.2 Nginx 설치 및 리버스 프록시 (80 포트)
 
 ```bash
 sudo apt install -y nginx
 sudo nano /etc/nginx/sites-available/latin
 ```
 
-다음 내용 추가 후 저장:
+다음 내용으로 채운 뒤 **`your-domain.com`을 본인 도메인으로 변경**하여 저장:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # 또는 인스턴스 공인 IP
+    server_name your-domain.com www.your-domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -257,22 +268,26 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/latin /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/latin /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-이후 브라우저에서 `http://<인스턴스_공인_IP>` 또는 `http://your-domain.com` 으로 접속합니다.
+이후 **http://your-domain.com** 으로 접속 (포트 번호 없이 80 사용).
 
 ---
 
 ## 5. HTTPS (선택, Let’s Encrypt)
 
+도메인 DNS가 인스턴스 IP를 가리키고, Nginx로 80 포트 접속이 된 상태에서:
+
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 ```
 
-도메인이 Oracle Cloud 인스턴스 IP를 가리키도록 DNS A 레코드가 설정되어 있어야 합니다.
+발급 후 **https://your-domain.com** 으로 접속.  
+HTTPS 사용 시 `.env`에 `SECURE_COOKIE=true` 추가 후 앱 컨테이너 재시작하면 관리자 세션 쿠키가 안전하게 동작합니다.
 
 ---
 
