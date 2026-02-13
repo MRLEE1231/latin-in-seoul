@@ -31,8 +31,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/package.json ./
 
-# Prisma CLI + bcrypt (시드 스크립트용)
-RUN npm install prisma bcrypt --omit=dev && chown -R nextjs:nodejs /app
+# Prisma CLI + bcrypt + effect (시드·db push용)
+RUN npm install prisma bcrypt effect --omit=dev && chown -R nextjs:nodejs /app
 COPY --from=builder /app/prisma/seed.mjs ./prisma/seed.mjs
 COPY --from=builder /app/prisma/seed.mjs ./seed.mjs
 
