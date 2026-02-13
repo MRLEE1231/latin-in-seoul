@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 수업 게시글 모델
+model Post {
+  id               Int         @id @default(autoincrement())
+  title            String?     // 제목 (선택)
+  content          String      // 본문 텍스트 (필수)
+  region           String?     // 지역: 'GANGNAM', 'HONGDAE', 'ETC'
+  danceType        String?     // 종류: 'SALSA', 'BACHATA', 'KIZOMBA', 'ZOUK', 'ETC'
+  instructorName   String?     // 강사명
+  classDays        String?     // 수업요일: 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN' (쉼표로 구분)
+  keywords         String?     // 해시태그/키워드 (쉼표로 구분, 예: 초보,소셜,bachata)
+  classDescription String?     // 수업설명
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  images           PostImage[] // 이미지 목록
+
+  @@map("posts")
+}
+
+// 관리자/사용자 (로그인)
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         String   // 'ADMIN' | 'USER'
+  createdAt    DateTime @default(now())
+  @@map("users")
+}
+
+// 게시글 이미지 모델
+model PostImage {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  imageUrl  String   // 이미지 URL 경로
+  imageOrder Int     @default(0) // 이미지 순서
+  createdAt DateTime @default(now())
+
+  @@map("post_images")
+  @@index([postId])
+}
