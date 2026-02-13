@@ -7,6 +7,7 @@ COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 RUN npm ci || npm install
 
 COPY . .
+RUN test -f prisma/seed.mjs || (echo "ERROR: prisma/seed.mjs not found in build context" && exit 1)
 RUN npx prisma generate
 RUN npm run build
 
@@ -33,6 +34,7 @@ COPY --from=builder /app/package.json ./
 # Prisma CLI + bcrypt (시드 스크립트용)
 RUN npm install prisma bcrypt --omit=dev && chown -R nextjs:nodejs /app
 COPY --from=builder /app/prisma/seed.mjs ./prisma/seed.mjs
+COPY --from=builder /app/prisma/seed.mjs ./seed.mjs
 
 # SQLite DB & uploads (use volume in production for persistence)
 RUN mkdir -p /app/prisma /app/public/uploads && chown -R nextjs:nodejs /app/prisma /app/public/uploads
