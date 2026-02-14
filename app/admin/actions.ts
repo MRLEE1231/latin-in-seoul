@@ -27,6 +27,11 @@ export async function createPost(formData: FormData): Promise<CreatePostResult> 
     const classDays = formData.getAll('classDays') as string[];
     const classDaysString = classDays.join(',');
 
+    const startDateRaw = (formData.get('startDate') as string) || '';
+    const endDateRaw = (formData.get('endDate') as string) || '';
+    const startDate = startDateRaw && startDateRaw.trim() ? new Date(startDateRaw.trim() + 'T00:00:00') : undefined;
+    const endDate = endDateRaw && endDateRaw.trim() ? new Date(endDateRaw.trim() + 'T00:00:00') : undefined;
+
     const rawFiles = formData.getAll('images');
     const savedImageUrls: string[] = [];
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
@@ -58,6 +63,8 @@ export async function createPost(formData: FormData): Promise<CreatePostResult> 
         danceType: danceType || undefined,
         instructorName: instructorName || undefined,
         classDays: classDaysString || undefined,
+        startDate,
+        endDate,
         keywords,
         classDescription: classDescription || undefined,
         ...(savedImageUrls.length > 0 && {
@@ -107,13 +114,18 @@ export async function updatePost(formData: FormData) {
   const classDays = formData.getAll('classDays') as string[];
   const classDaysString = classDays.join(',');
 
-  const files = formData.getAll('images') as File[];
+  const startDateRaw = (formData.get('startDate') as string) || '';
+  const endDateRaw = (formData.get('endDate') as string) || '';
+  const startDate = startDateRaw && startDateRaw.trim() ? new Date(startDateRaw.trim() + 'T00:00:00') : null;
+  const endDate = endDateRaw && endDateRaw.trim() ? new Date(endDateRaw.trim() + 'T00:00:00') : null;
+
+  const rawFiles = formData.getAll('images');
+  const files = rawFiles.filter((f): f is File => f instanceof File && f.size > 0);
   const savedImageUrls: { url: string; order: number }[] = [];
   const existingCount = post.images.length;
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    if (!file || file.size === 0) continue;
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileExtension = path.extname(file.name);
@@ -133,6 +145,8 @@ export async function updatePost(formData: FormData) {
       danceType,
       instructorName,
       classDays: classDaysString,
+      startDate,
+      endDate,
       keywords,
       classDescription,
       ...(savedImageUrls.length > 0 && {
@@ -147,6 +161,34 @@ export async function updatePost(formData: FormData) {
   revalidatePath(`/posts/${id}`);
   revalidatePath('/admin');
   redirect('/admin');
+}
+
+export async function deletePostImage(imageId: number) {
+  const image = await prisma.postImage.findUnique({
+    where: { id: imageId },
+    include: { post: true },
+  });
+  if (!image) return;
+  const postId = image.postId;
+
+  if (image.imageUrl.startsWith('/uploads/')) {
+    const fileName = image.imageUrl.replace('/uploads/', '');
+    const absolutePath = path.join(process.cwd(), 'public', 'uploads', fileName);
+    try {
+      await unlink(absolutePath);
+    } catch (err) {
+      console.error('Failed to delete file:', absolutePath, err);
+    }
+  }
+
+  await prisma.postImage.delete({
+    where: { id: imageId },
+  });
+
+  revalidatePath('/admin');
+  revalidatePath(`/admin/posts/${postId}/edit`);
+  revalidatePath(`/posts/${postId}`);
+  revalidatePath('/posts');
 }
 
 export async function deletePost(id: number, options?: { skipRevalidate?: boolean }) {

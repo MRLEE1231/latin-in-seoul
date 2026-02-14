@@ -88,7 +88,8 @@
 - Ingress 규칙 추가:
   - **Source:** 0.0.0.0/0
   - **Destination port:** 22 (SSH), 80 (HTTP), 443 (HTTPS)
-- 또는 인스턴스에 **Network Security Group** 사용 시 80, 443 허용
+- **PostgreSQL 원격 접속용 (DBeaver 등):** 5432 포트를 열고 싶다면 같은 방식으로 5432 추가. 보안을 위해 **특정 IP만** 허용하거나, 5432는 열지 않고 **SSH 터널**로만 접속하는 것을 권장 (8장 참고).
+- 또는 인스턴스에 **Network Security Group** 사용 시 80, 443 (및 필요 시 5432) 허용
 
 **SSH 연결 타임아웃일 때 추가 확인:**
 
@@ -182,37 +183,62 @@ cd latin_in_seoul
 ### 3.2 환경 변수
 
 ```bash
-# .env 파일 생성 (프로덕션용)
+# .env 파일 생성 (프로덕션용) — PostgreSQL 사용
+# 비밀번호는 반드시 본인이 정한 강한 비밀번호로 변경
 cat << 'EOF' > .env
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="postgresql://postgres:여기에Postgres비밀번호@latin-postgres:5432/latin_in_seoul"
 AUTH_SECRET="여기에-랜덤-긴-문자열-설정"
 NODE_ENV=production
 EOF
 ```
 
+- `DATABASE_URL`: Postgres 컨테이너 이름이 `latin-postgres`이고, 같은 Docker 네트워크에서 접속하므로 호스트는 `latin-postgres`, DB 이름은 `latin_in_seoul`. 비밀번호만 위에서 설정한 값과 맞추면 됩니다.
 - `AUTH_SECRET`: 관리자 세션 서명용. 예: `openssl rand -base64 32` 로 생성
 
-### 3.3 Docker 이미지 빌드 및 실행
+### 3.3 PostgreSQL + 앱 실행 (Docker)
+
+**PostgreSQL**을 포트 5432로 띄우고, 앱은 이 DB에 연결합니다. DBeaver 등으로 **서버:5432**에 접속해 DB를 관리할 수 있습니다.
 
 ```bash
-cd ~/latin_in_seoul   # 또는 앱 디렉터리
+cd ~/latin_in_seoul
 
-# 이미지 빌드
+# 0) Docker 네트워크 생성 (최초 1회)
+docker network create latin-net 2>/dev/null || true
+
+# 1) PostgreSQL 컨테이너 실행 (최초 1회 또는 재시작 시)
+docker run -d \
+  --name latin-postgres \
+  --network latin-net \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=여기에Postgres비밀번호 \
+  -e POSTGRES_DB=latin_in_seoul \
+  -v latin_postgres_data:/var/lib/postgresql/data \
+  --restart unless-stopped \
+  postgres:16-alpine
+
+# 2) 앱 이미지 빌드
 docker build -t latin-in-seoul .
 
-# 컨테이너 실행 (볼륨으로 DB·업로드 유지)
+# 3) 앱 컨테이너 실행 (같은 네트워크에서 latin-postgres:5432 로 접속)
 docker run -d \
   --name latin-app \
+  --network latin-net \
   -p 3000:3000 \
-  -v $(pwd)/data/prisma:/app/prisma \
   -v $(pwd)/data/uploads:/app/public/uploads \
   --env-file .env \
   --restart unless-stopped \
   latin-in-seoul
 ```
 
-- `data/prisma`: SQLite DB 파일 유지
+- `latin_postgres_data`: PostgreSQL 데이터 볼륨 (컨테이너 삭제해도 유지)
 - `data/uploads`: 업로드 이미지 유지
+
+**마이그레이션 적용 (최초 1회 또는 스키마 변경 후):**
+
+```bash
+docker exec -it latin-app npx prisma migrate deploy
+```
 
 ### 3.4 관리자 계정 생성 (최초 1회)
 
@@ -224,6 +250,75 @@ docker exec -it latin-app node /app/prisma/seed.mjs
 
 - 아이디: `admin` / 비밀번호: `ehdsuz12#`
 - 이미 있으면 "Admin user already exists." 만 출력됩니다.
+
+**기존 SQLite에서 전환한 경우:** PostgreSQL은 새 DB이므로 기존 게시글·이미지·관리자 계정은 자동으로 옮겨지지 않습니다. 필요하면 SQLite 데이터를 내보낸 뒤 PostgreSQL에 맞게 이관하는 스크립트를 별도로 작성해야 합니다. 새로 시작하는 경우 위 시드만 실행하면 됩니다.
+
+### 3.5 지금 배포하기 (VM 서버에서 빌드)
+
+로컬에서 Docker 이미지를 빌드하지 않고, **서버(VM) 안에서만** 빌드·실행하는 순서입니다.
+
+**1) 로컬에서 코드 푸시**
+
+```bash
+git add .
+git commit -m "배포: PostgreSQL 전환 등"
+git push origin main
+```
+
+**2) 서버 SSH 접속 후 배포**
+
+```bash
+# 접속
+ssh -i "키경로" ubuntu@서버공인IP
+
+cd ~/latin_in_seoul
+git pull origin main
+
+# 기존 앱 컨테이너만 재배포할 때 (Postgres는 이미 떠 있음)
+docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
+docker build -t latin-in-seoul .
+docker run -d --name latin-app --network latin-net -p 3000:3000 \
+  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
+docker exec -it latin-app npx prisma migrate deploy
+```
+
+**3) 최초 배포(Postgres·앱 둘 다 처음)일 때**
+
+```bash
+cd ~/latin_in_seoul
+git pull origin main
+
+# .env 없으면 생성 (비밀번호·AUTH_SECRET 본인 값으로 변경)
+# cat << 'EOF' > .env
+# DATABASE_URL="postgresql://postgres:비밀번호@latin-postgres:5432/latin_in_seoul"
+# AUTH_SECRET="랜덤문자열"
+# NODE_ENV=production
+# EOF
+
+docker network create latin-net 2>/dev/null || true
+docker run -d --name latin-postgres --network latin-net -p 5432:5432 \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=비밀번호 -e POSTGRES_DB=latin_in_seoul \
+  -v latin_postgres_data:/var/lib/postgresql/data --restart unless-stopped postgres:16-alpine
+docker build -t latin-in-seoul .
+docker run -d --name latin-app --network latin-net -p 3000:3000 \
+  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
+docker exec -it latin-app npx prisma migrate deploy
+docker exec -it latin-app node /app/prisma/seed.mjs
+```
+
+**4) 기존에 SQLite로 돌리던 서버를 Postgres로 바꾸는 경우**
+
+```bash
+cd ~/latin_in_seoul
+git pull origin main
+
+# 기존 앱 중지·삭제 (DB 파일은 data/prisma 에 남음)
+docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
+
+# .env 를 Postgres용으로 수정 후, 위 3)의 네트워크·postgres·앱 실행·migrate·seed 순서 실행
+```
+
+정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build -t latin-in-seoul .` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다.
 
 ---
 
@@ -299,8 +394,9 @@ HTTPS 사용 시 `.env`에 `SECURE_COOKIE=true` 추가 후 앱 컨테이너 재�
 | 보안 목록에서 80, 443 (및 22) 열기 | |
 | Docker 설치 및 `docker` 그룹 추가 | |
 | 앱 디렉터리에서 `docker build` | |
-| `.env`에 `DATABASE_URL`, `AUTH_SECRET` 설정 | |
-| `docker run` 시 `prisma`·`uploads` 볼륨 마운트 | |
+| `.env`에 `DATABASE_URL`(postgresql://...), `AUTH_SECRET` 설정 | |
+| PostgreSQL 컨테이너 + 앱 컨테이너 실행, `uploads` 볼륨 마운트 | |
+| `prisma migrate deploy` 실행 (최초/스키마 변경 후) | |
 | 최초 1회 관리자 시드 실행 (admin / ehdsuz12#) | |
 | (선택) Nginx 리버스 프록시 | |
 | (선택) 도메인 + certbot HTTPS | |
@@ -319,7 +415,49 @@ docker restart latin-app
 # 이미지 업데이트 후 재배포
 docker stop latin-app && docker rm latin-app
 docker build -t latin-in-seoul .
-docker run -d ...  # 위 3.3과 동일 옵션으로 다시 실행
+docker run -d ...  # 위 3.3의 3)과 동일 옵션으로 다시 실행
+# Postgres는 그대로 두고 앱만 재시작하면 됨
 ```
 
 문제가 있으면 `docker logs latin-app` 과 서버의 `.env` 설정을 먼저 확인하세요.
+
+---
+
+## 8. 운영 DB 접근 (DBeaver — 포트 5432)
+
+운영 DB는 **PostgreSQL**이라 **포트 5432**로 접속할 수 있습니다. DBeaver에서 **서버 IP + 포트**로 연결하면 됩니다.
+
+### 8.1 보안 목록에서 5432 열기 (선택)
+
+- Oracle Cloud **Security List**에 **Destination port 5432** Ingress 규칙 추가 시, 인터넷에서 `서버공인IP:5432`로 접속 가능합니다.
+- **보안 권장:** 5432를 전 세계(0.0.0.0/0)에 열지 말고, **본인 IP만** 허용하거나, 아래처럼 **SSH 터널**만 쓰는 편이 안전합니다.
+
+### 8.2 DBeaver로 접속 (직접 포트 연결)
+
+1. DBeaver 실행 → **데이터베이스** → **새 데이터베이스 연결** → **PostgreSQL** 선택
+2. **호스트:** 서버 공인 IP (또는 도메인)
+3. **포트:** 5432
+4. **데이터베이스:** latin_in_seoul
+5. **사용자명:** postgres
+6. **비밀번호:** 3.3에서 Postgres 컨테이너에 설정한 `POSTGRES_PASSWORD`
+7. **테스트 연결** → **완료** 후 조회·쿼리
+
+### 8.3 SSH 터널로 접속 (5432 포트를 공인에 안 열 때)
+
+5432를 보안 목록에 열지 않고, SSH로만 터널을 만들어 접속하는 방법입니다.
+
+1. **내 PC에서 SSH 로컬 포워딩**
+   ```bash
+   ssh -i "개인키경로" -L 5432:localhost:5432 ubuntu@서버공인IP
+   ```
+   SSH 접속을 유지한 채로 둡니다.
+
+2. **DBeaver에서 연결**
+   - **호스트:** localhost (또는 127.0.0.1)
+   - **포트:** 5432
+   - **데이터베이스:** latin_in_seoul
+   - **사용자명:** postgres
+   - **비밀번호:** Postgres 비밀번호
+   - (고급) **SSH** 탭에서 “SSH 터널 사용” 대신, 이미 터널을 켜 둔 상태이므로 위 설정만으로 접속됩니다.
+
+이렇게 하면 **별도 포트(5432)로 붙는 방식**으로 DBeaver에서 운영 DB를 관리할 수 있습니다.

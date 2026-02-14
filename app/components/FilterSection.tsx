@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Children, cloneElement, isValidElement, ReactElement } from 'react';
+import { useState, useEffect, Children, cloneElement, isValidElement, ReactElement } from 'react';
 
 const DETAILED_MARKER = 'detailed-only';
 
@@ -14,6 +14,11 @@ export default function FilterSection({
   leftExtra?: React.ReactNode;
 }) {
   const [isDetailed, setIsDetailed] = useState(initialDetailed);
+
+  // URL에 상세 조건(기간/요일/키워드)이 있으면 조회 후에도 상세 검색 영역 유지
+  useEffect(() => {
+    if (initialDetailed) setIsDetailed(true);
+  }, [initialDetailed]);
 
   const arrayChildren = Children.toArray(children);
 

@@ -19,32 +19,33 @@
 npm install
 ```
 
-### 2. 데이터베이스 설정
+### 2. 데이터베이스 설정 (PostgreSQL)
 
-#### Supabase 무료 티어 사용 (추천)
+프로젝트는 **PostgreSQL**을 사용합니다. 로컬에서는 Docker로 띄우거나, Supabase 등 원격 DB를 쓸 수 있습니다.
 
-1. [Supabase](https://supabase.com)에서 계정 생성 및 프로젝트 생성
-2. Settings > Database > Connection string > URI 복사
-3. `.env` 파일 생성:
+#### 로컬 PostgreSQL (Docker)
 
 ```bash
 cp .env.example .env
+# .env의 DATABASE_URL이 postgresql://postgres:postgres@localhost:5432/latin_in_seoul 인지 확인
+
+docker compose up -d postgres
+npx prisma migrate deploy
+npx prisma db seed   # 또는 node prisma/seed.mjs (관리자 계정 생성)
 ```
 
-4. `.env` 파일에 데이터베이스 URL 설정:
+#### Supabase 무료 티어
 
-```env
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
-```
+1. [Supabase](https://supabase.com)에서 프로젝트 생성 후 Connection string(URI) 복사
+2. `.env`에 `DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres"` 설정
+3. `npx prisma migrate deploy` 실행
 
 ### 3. 데이터베이스 마이그레이션
 
 ```bash
-# Prisma 클라이언트 생성
 npx prisma generate
-
-# 데이터베이스 마이그레이션 실행
-npx prisma migrate dev --name init
+npx prisma migrate deploy   # 운영/로컬 DB에 스키마 적용
+# 또는 개발 시: npx prisma migrate dev --name 변경이름
 ```
 
 ### 4. 개발 서버 실행

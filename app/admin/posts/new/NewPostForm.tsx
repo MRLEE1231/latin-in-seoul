@@ -40,7 +40,7 @@ export default function NewPostForm() {
         <h1 className="text-3xl font-bold">새 수업 추가 (Admin)</h1>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100" encType="multipart/form-data">
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {error}
@@ -121,6 +121,27 @@ export default function NewPostForm() {
                 <span className="text-sm text-gray-700 font-medium">{day.label}</span>
               </label>
             ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="startDate" className="block text-sm font-semibold text-gray-700">개강일 (선택)</label>
+            <input
+              type="date"
+              id="startDate"
+              name="startDate"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-slate-500 focus:outline-none transition-colors"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="endDate" className="block text-sm font-semibold text-gray-700">종강일 (선택)</label>
+            <input
+              type="date"
+              id="endDate"
+              name="endDate"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-slate-500 focus:outline-none transition-colors"
+            />
           </div>
         </div>
 

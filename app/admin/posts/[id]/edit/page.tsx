@@ -1,7 +1,8 @@
-import { updatePost } from '../../../actions';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import EditPostForm from './EditPostForm';
+import EditPostImagesSection from './EditPostImagesSection';
 
 const DAY_OPTIONS = [
   { label: '월', value: 'MON' },
@@ -40,7 +41,7 @@ export default async function EditPostPage({
         <p className="text-sm text-gray-500 mt-1">제목: {post.title || '제목 없음'}</p>
       </header>
 
-      <form action={updatePost} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+      <EditPostForm>
         <input type="hidden" name="id" value={post.id} />
 
         <div className="space-y-2">
@@ -116,6 +117,29 @@ export default async function EditPostPage({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="startDate" className="block text-sm font-semibold text-gray-700">개강일 (선택)</label>
+            <input
+              type="date"
+              id="startDate"
+              name="startDate"
+              defaultValue={post.startDate ? new Date(post.startDate).toISOString().slice(0, 10) : ''}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-slate-500 focus:outline-none transition-colors"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="endDate" className="block text-sm font-semibold text-gray-700">종강일 (선택)</label>
+            <input
+              type="date"
+              id="endDate"
+              name="endDate"
+              defaultValue={post.endDate ? new Date(post.endDate).toISOString().slice(0, 10) : ''}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-slate-500 focus:outline-none transition-colors"
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label htmlFor="content" className="block text-sm font-semibold text-gray-700">본문 내용 (선택)</label>
           <textarea
@@ -152,49 +176,8 @@ export default async function EditPostPage({
           />
         </div>
 
-        {post.images.length > 0 && (
-          <div className="space-y-2">
-            <span className="block text-sm font-semibold text-gray-700">현재 이미지 ({post.images.length}장)</span>
-            <div className="flex flex-wrap gap-2">
-              {post.images.map((img) => (
-                <img
-                  key={img.id}
-                  src={img.imageUrl}
-                  alt=""
-                  className="h-20 w-20 rounded-lg object-cover border border-gray-200"
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <label className="block text-sm font-semibold text-gray-700">이미지 추가 (기존 유지 + 새 파일)</label>
-          <input
-            type="file"
-            name="images"
-            multiple
-            accept="image/*"
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-          />
-          <p className="text-xs text-gray-400 italic">추가할 이미지만 선택하세요. 기존 이미지는 그대로 유지됩니다.</p>
-        </div>
-
-        <div className="pt-4 flex gap-3">
-          <button
-            type="submit"
-            className="flex-1 rounded-xl bg-slate-600 px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-[0.98]"
-          >
-            수정 저장
-          </button>
-          <Link
-            href="/admin"
-            className="rounded-xl border border-gray-300 px-6 py-3 font-bold text-gray-600 hover:bg-gray-50 transition-all text-center"
-          >
-            취소
-          </Link>
-        </div>
-      </form>
+        <EditPostImagesSection existingImages={post.images.map((img) => ({ id: img.id, imageUrl: img.imageUrl, imageOrder: img.imageOrder }))} />
+      </EditPostForm>
     </div>
   );
 }

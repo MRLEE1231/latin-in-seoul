@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import FilterSection from '@/app/components/FilterSection';
+import PeriodFilter from '@/app/components/PeriodFilter';
 import { getAdminSession } from '@/lib/auth';
 
 const REGION_OPTIONS: { label: string; value?: string }[] = [
@@ -61,12 +63,14 @@ function formatKeywords(keywords?: string | null, maxLength = 24) {
   return display.slice(0, maxLength) + '…';
 }
 
-function buildHref(region?: string, danceType?: string, day?: string, keyword?: string) {
+function buildHref(region?: string, danceType?: string, day?: string, keyword?: string, periodFrom?: string, periodTo?: string) {
   const params = new URLSearchParams();
   if (region) params.set('region', region);
   if (danceType) params.set('danceType', danceType);
   if (day) params.set('day', day);
   if (keyword) params.set('keyword', keyword);
+  if (periodFrom) params.set('periodFrom', periodFrom);
+  if (periodTo) params.set('periodTo', periodTo);
   const qs = params.toString();
   return qs ? `/posts?${qs}` : '/posts';
 }
@@ -75,9 +79,27 @@ function buildHref(region?: string, danceType?: string, day?: string, keyword?: 
 export default async function PostsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ region?: string; danceType?: string; day?: string; keyword?: string }>;
+  searchParams: Promise<{ region?: string; danceType?: string; day?: string; keyword?: string; periodFrom?: string; periodTo?: string }>;
 }) {
-  const { region, danceType, day, keyword } = await searchParams;
+  const { region, danceType, day, keyword, periodFrom, periodTo } = await searchParams;
+
+  const periodFromDate = periodFrom && periodFrom.trim() ? new Date(periodFrom.trim() + 'T00:00:00') : null;
+  const periodToDate = periodTo && periodTo.trim() ? new Date(periodTo.trim() + 'T23:59:59') : null;
+
+  // 수업 기간 필터: 기간 [periodFrom, periodTo]와 겹치는 수업만. 개강일 없음 = 최솟값(항상 포함), 종강일 없음 = 최댓값(항상 포함)
+  const periodWhere: Prisma.PostWhereInput | undefined =
+    periodFromDate || periodToDate
+      ? ({
+          AND: [
+            ...(periodToDate
+              ? [{ OR: [{ startDate: { lte: periodToDate } }, { startDate: { equals: null } }] }] // 개강일 없음 → 최솟값
+              : []),
+            ...(periodFromDate
+              ? [{ OR: [{ endDate: { gte: periodFromDate } }, { endDate: { equals: null } }] }] // 종강일 없음 → 최댓값
+              : []),
+          ].filter(Boolean),
+        } as Prisma.PostWhereInput)
+      : undefined;
 
   const posts = await prisma.post.findMany({
     where: {
@@ -85,6 +107,7 @@ export default async function PostsPage({
       ...(danceType && { danceType }),
       ...(day && { classDays: { contains: day } }),
       ...(keyword && keyword.trim() && { keywords: { contains: keyword.trim() } }),
+      ...(periodWhere && periodWhere),
     },
     include: {
       images: {
@@ -103,7 +126,7 @@ export default async function PostsPage({
     <div className="container mx-auto px-4 pt-4 pb-10">
       <header className="mb-6 space-y-2">
         <FilterSection
-          initialDetailed={Boolean(day || keyword)}
+          initialDetailed={Boolean(day || keyword || periodFrom || periodTo)}
           leftExtra={
             adminSession ? (
               <Link
@@ -121,7 +144,7 @@ export default async function PostsPage({
             <div className="flex flex-wrap gap-2">
               {REGION_OPTIONS.map((opt) => {
                 const active = region === (opt.value ?? undefined);
-                const href = buildHref(opt.value, danceType, day, keyword);
+                const href = buildHref(opt.value, danceType, day, keyword, periodFrom, periodTo);
                 return (
                   <Link
                     key={opt.label}
@@ -145,7 +168,7 @@ export default async function PostsPage({
             <div className="flex flex-nowrap gap-2 overflow-x-auto min-w-0 py-1 hide-scrollbar">
               {DANCE_TYPE_OPTIONS.map((opt) => {
                 const active = danceType === (opt.value ?? undefined);
-                const href = buildHref(region, opt.value, day, keyword);
+                const href = buildHref(region, opt.value, day, keyword, periodFrom, periodTo);
                 return (
                   <Link
                     key={opt.label}
@@ -163,52 +186,66 @@ export default async function PostsPage({
             </div>
           </div>
 
-          {/* 요일 필터 (상세 검색 시 노출) */}
+          {/* 기간: 값 선택 시 즉시 조회 (지역/종류와 동일, 한 줄 배치) */}
           <div className="detailed-only hidden flex items-center gap-3 border-t border-gray-50 pt-3">
-            <span className="text-xs font-bold text-gray-400 w-8 shrink-0 whitespace-nowrap">요일</span>
-            <div className="flex flex-nowrap gap-2 overflow-x-auto min-w-0 py-1 hide-scrollbar">
-              {DAY_OPTIONS.map((opt) => {
-                const active = day === (opt.value ?? undefined);
-                const href = buildHref(region, danceType, opt.value, keyword);
-                return (
-                  <Link
-                    key={opt.label}
-                    href={href}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors whitespace-nowrap ${
-                      active
-                        ? 'border-slate-600 bg-slate-600 text-white'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    {opt.label}
-                  </Link>
-                );
-              })}
-            </div>
+            <PeriodFilter
+              region={region}
+              danceType={danceType}
+              day={day}
+              keyword={keyword}
+              periodFrom={periodFrom}
+              periodTo={periodTo}
+            />
           </div>
 
-          {/* 키워드 필터 (상세 검색 시 노출) */}
-          <div className="detailed-only hidden flex flex-wrap items-center gap-3 border-t border-gray-50 pt-3">
-            <span className="text-xs font-bold text-gray-400 w-8 shrink-0 whitespace-nowrap">키워드</span>
-            <form method="get" action="/posts" className="flex flex-1 min-w-0 gap-2">
-              {region && <input type="hidden" name="region" value={region} />}
-              {danceType && <input type="hidden" name="danceType" value={danceType} />}
-              {day && <input type="hidden" name="day" value={day} />}
-              <input
-                type="text"
-                name="keyword"
-                defaultValue={keyword}
-                placeholder="해시태그·키워드 검색"
-                className="flex-1 min-w-0 rounded-full border border-gray-200 px-3 py-1.5 text-sm placeholder:text-gray-400 focus:border-slate-500 focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded-full bg-slate-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
-              >
-                검색
-              </button>
-            </form>
-          </div>
+          {/* 요일 + 키워드: 폼으로 제출 */}
+          <form method="get" action="/posts" className="detailed-only hidden flex flex-col gap-0 border-t border-gray-50 pt-3" key={`detail-${keyword ?? ''}`}>
+            {region && <input type="hidden" name="region" value={region} />}
+            {danceType && <input type="hidden" name="danceType" value={danceType} />}
+            {day && <input type="hidden" name="day" value={day} />}
+            {periodFrom && <input type="hidden" name="periodFrom" value={periodFrom} />}
+            {periodTo && <input type="hidden" name="periodTo" value={periodTo} />}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-gray-400 w-8 shrink-0 whitespace-nowrap">요일</span>
+              <div className="flex flex-nowrap gap-2 overflow-x-auto min-w-0 py-1 hide-scrollbar">
+                {DAY_OPTIONS.map((opt) => {
+                  const active = day === (opt.value ?? undefined);
+                  const href = buildHref(region, danceType, opt.value, keyword, periodFrom, periodTo);
+                  return (
+                    <Link
+                      key={opt.label}
+                      href={href}
+                      className={`shrink-0 rounded-full border px-3 py-1 text-sm transition-colors whitespace-nowrap ${
+                        active
+                          ? 'border-slate-600 bg-slate-600 text-white'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {opt.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 border-t border-gray-50 pt-3">
+              <span className="text-xs font-bold text-gray-400 w-8 shrink-0 whitespace-nowrap">키워드</span>
+              <div className="flex flex-1 min-w-0 gap-2">
+                <input
+                  type="text"
+                  name="keyword"
+                  defaultValue={keyword}
+                  placeholder="해시태그·키워드 검색"
+                  className="flex-1 min-w-0 rounded-full border border-gray-200 px-3 py-1.5 text-sm placeholder:text-gray-400 focus:border-slate-500 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-full bg-slate-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+                >
+                  검색
+                </button>
+              </div>
+            </div>
+          </form>
         </FilterSection>
       </header>
 

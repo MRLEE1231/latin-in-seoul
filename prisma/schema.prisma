@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,6 +19,8 @@ model Post {
   danceType        String?     // 종류: 'SALSA', 'BACHATA', 'KIZOMBA', 'ZOUK', 'ETC'
   instructorName   String?     // 강사명
   classDays        String?     // 수업요일: 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN' (쉼표로 구분)
+  startDate        DateTime?   // 개강일 (수업 기간 시작)
+  endDate          DateTime?   // 종강일 (수업 기간 종료)
   keywords         String?     // 해시태그/키워드 (쉼표로 구분, 예: 초보,소셜,bachata)
   classDescription String?     // 수업설명
   createdAt        DateTime    @default(now())

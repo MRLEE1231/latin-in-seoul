@@ -1,0 +1,20 @@
+# 로컬 개발·운영 서버용 PostgreSQL
+# 사용: docker compose up -d postgres
+# 연결: postgresql://postgres:postgres@localhost:5432/latin_in_seoul
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: latin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: latin_in_seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
