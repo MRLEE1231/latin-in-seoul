@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET /api/posts - 게시글 목록 조회 (필터링 지원)
+// GET /api/posts - 게시글 목록 조회 (필터링 지원). region은 쉼표 복수 저장 시에도 단일 값 필터 매칭.
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const region = searchParams.get('region'); // 'GANGNAM', 'HONGDAE', 'ETC'
     const danceType = searchParams.get('danceType'); // 'SALSA', 'BACHATA', 'KIZOMBA'
 
+    const regionWhere =
+      region
+        ? {
+            OR: [
+              { region: { equals: region } },
+              { region: { startsWith: `${region},` } },
+              { region: { endsWith: `,${region}` } },
+              { region: { contains: `,${region},` } },
+            ],
+          }
+        : undefined;
+
     const posts = await prisma.post.findMany({
       where: {
-        ...(region && { region }),
+        ...(regionWhere && regionWhere),
         ...(danceType && { danceType }),
       },
       include: {

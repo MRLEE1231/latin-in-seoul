@@ -47,13 +47,13 @@ export default async function PostDetailPage({
   };
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* 상단 네비게이션 */}
-      <nav className="sticky top-0 z-30 flex items-center justify-between border-b bg-white/80 px-4 py-3 backdrop-blur-md">
-        <Link href="/posts" className="p-1 hover:opacity-60">
+    <div className="min-h-screen bg-white dark:bg-gray-950 pb-20">
+      {/* 상단 네비게이션: 라이트/다크 모두에서 대비 확보 */}
+      <nav className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/95 px-4 py-3 backdrop-blur-md">
+        <Link href="/posts" className="p-1 text-gray-900 dark:text-gray-100 hover:opacity-70">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </Link>
-        <span className="text-sm font-bold">게시물</span>
+        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">게시물</span>
         <div className="w-8" />
       </nav>
 
@@ -79,7 +79,21 @@ export default async function PostDetailPage({
             {post.region && (
               <div className="py-3">
                 <dt className="text-xs font-bold text-gray-400 mb-1">지역</dt>
-                <dd className="text-gray-900">{regionMap[post.region] || post.region}</dd>
+                <dd className="text-gray-900">
+                  {post.region.split(',').map((r) => r.trim()).filter(Boolean).map((r) => regionMap[r] || r).join(' · ')}
+                </dd>
+              </div>
+            )}
+            {(post.startDate || post.endDate) && (
+              <div className="py-3">
+                <dt className="text-xs font-bold text-gray-400 mb-1">기간</dt>
+                <dd className="text-gray-900">
+                  {post.startDate && post.endDate
+                    ? `${new Date(post.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(post.endDate).toLocaleDateString('ko-KR')}`
+                    : post.startDate
+                    ? `${new Date(post.startDate).toLocaleDateString('ko-KR')} ~`
+                    : `~ ${post.endDate ? new Date(post.endDate).toLocaleDateString('ko-KR') : ''}`}
+                </dd>
               </div>
             )}
             {post.danceType && (

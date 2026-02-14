@@ -251,7 +251,80 @@ docker exec -it latin-app node /app/prisma/seed.mjs
 - 아이디: `admin` / 비밀번호: `ehdsuz12#`
 - 이미 있으면 "Admin user already exists." 만 출력됩니다.
 
-**기존 SQLite에서 전환한 경우:** PostgreSQL은 새 DB이므로 기존 게시글·이미지·관리자 계정은 자동으로 옮겨지지 않습니다. 필요하면 SQLite 데이터를 내보낸 뒤 PostgreSQL에 맞게 이관하는 스크립트를 별도로 작성해야 합니다. 새로 시작하는 경우 위 시드만 실행하면 됩니다.
+**기존 SQLite에서 전환한 경우:** PostgreSQL은 새 DB이므로 기존 게시글·이미지·관리자 계정은 자동으로 옮겨지지 않습니다. 아래 3.5.1 이관 스크립트를 사용하면 됩니다. 새로 시작하는 경우 위 시드만 실행하면 됩니다.
+
+#### 3.4.1 기존 SQLite 데이터를 PostgreSQL로 이관하기 (운영 서버 기준)
+
+**상황:** 예전에는 SQLite로 운영했고, 지금은 같은 서버에서 PostgreSQL로 바꿨다. 예전 게시글·이미지·관리자 계정을 **운영 DB(PostgreSQL)에 다시 넣고 싶다.**
+
+**전제:** 예전 SQLite DB 파일이 **서버 어딘가에 남아 있어야** 한다.  
+예전에 `-v data/prisma:/app/prisma` 로 실행했다면 `~/latin-in-seoul/data/prisma/dev.db` 에 있을 수 있다.
+
+---
+
+**1단계: SQLite 파일 있는지 확인**
+
+서버에 SSH 접속한 뒤:
+
+```bash
+cd ~/latin-in-seoul
+ls -la data/prisma/
+```
+
+`dev.db` (또는 비슷한 이름의 `.db` 파일)가 있으면 그 경로를 쓰면 된다.  
+없으면 예전 백업/다른 경로에서 복구한 뒤 아래를 진행한다.
+
+---
+
+**2단계: 이관 스크립트 실행 (서버에서, Docker로 한 번만 실행)**
+
+**필수:** 서버에 `prisma/migrate-sqlite-to-pg.mjs` 파일이 있어야 합니다. 없으면 `Cannot find module '/app/prisma/migrate-sqlite-to-pg.mjs'` 오류가 납니다.  
+로컬에서 해당 파일을 커밋·푸시한 뒤, 서버에서 `cd ~/latin-in-seoul && git pull origin main` 으로 받은 다음 아래 명령을 실행하세요.  
+확인: `ls ~/latin-in-seoul/prisma/migrate-sqlite-to-pg.mjs`
+
+**참고:** 볼륨에 프로젝트 루트 **절대 경로**를 쓰므로, `data/prisma` 안에서 실행해도 동작합니다. (다른 OS 사용자면 `/home/ubuntu/` 부분을 본인 홈 경로로 바꾸세요.)
+
+서버에는 보통 호스트에 Node가 없으므로, **프로젝트 전체를 마운트한 컨테이너**에서 스크립트를 실행한다.  
+아래에서 `admin` 과 `latin-postgres` 는 본인이 쓰는 Postgres 비밀번호·컨테이너 이름에 맞게 바꾼다.
+
+```bash
+# 프로젝트 루트를 절대 경로로 마운트 → 어느 디렉터리에서 실행해도 동작 (ubuntu 사용자 기준)
+# -v /app/node_modules: 컨테이너 전용 node_modules 사용 → 호스트와 충돌(ETXTBSY) 방지
+sudo docker run --rm -it \
+  --network latin-net \
+  -v /home/ubuntu/latin-in-seoul:/app \
+  -v /app/node_modules \
+  -w /app \
+  -e DATABASE_URL="postgresql://postgres:admin@latin-postgres:5432/latin_in_seoul" \
+  node:20-alpine \
+  sh -c "npm ci && npx prisma generate && node prisma/migrate-sqlite-to-pg.mjs ./data/prisma/prisma/dev.db"
+```
+
+- `--network latin-net`: 같은 네트워크에서 `latin-postgres` 에 접속하기 위함.
+- `-v /home/ubuntu/latin-in-seoul:/app`: 프로젝트 루트 **절대 경로** → 현재 디렉터리와 관계없이 항상 전체 프로젝트가 컨테이너에 마운트됨.
+- `-v /app/node_modules`: **익명 볼륨** → 컨테이너만의 `node_modules` 사용. 호스트의 `node_modules`와 겹치지 않아 `npm ci` 시 ETXTBSY 오류를 막음.
+- `DATABASE_URL`: **운영**에서 쓰는 PostgreSQL 주소(비밀번호 포함). `.env` 에 있는 값과 동일하게.
+- 마지막 인자: **1단계에서 확인한 SQLite 파일 경로** (예: `./data/prisma/dev.db` 또는 `./data/prisma/prisma/dev.db`).
+
+실행이 끝나면 터미널에 `Users copied.`, `Posts copied.`, `Post_images copied.`, `Done.` 같은 로그가 나온다.
+
+---
+
+**3단계: 결과 확인**
+
+- 브라우저에서 **운영 사이트** 접속 → 예전에 쓰던 게시글·이미지가 보이는지 확인.
+- 관리자 로그인도 예전 계정으로 되는지 확인.
+- **이미지**는 DB에 경로만 들어가고, 실제 파일은 `data/uploads` 에 있어야 한다. 예전에 쓰던 `data/uploads` 를 그대로 두었다면 이관 후에도 이미지가 보인다.
+
+---
+
+**정리 (운영 기준으로 예전 데이터 다시 불러오기)**
+
+1. 서버에서 예전 SQLite 파일 위치 확인 (`data/prisma/dev.db` 등).
+2. 위 **2단계** 명령 한 번 실행 (DATABASE_URL·비밀번호·SQLite 경로만 본인 환경에 맞게 수정).
+3. 운영 사이트에서 게시글·이미지·로그인 확인.
+
+로컬이 아니라 **운영 DB(PostgreSQL)** 에 넣는 것이므로, 반드시 **운영 서버에서** 위 명령을 실행하고, `DATABASE_URL` 은 **운영용 PostgreSQL** 주소로 두면 된다.
 
 ### 3.5 지금 배포하기 (VM 서버에서 빌드)
 
@@ -319,6 +392,55 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 ```
 
 정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build -t latin-in-seoul .` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다.
+
+### 3.6 종료된 수업 자동 삭제 스케줄러 (매일 00:00)
+
+**동작:** 종료일(`endDate`)이 **오늘 00:00 KST** 이전인 수업 게시글을 매일 자동 삭제합니다.
+
+**1) 환경 변수**
+
+서버 `.env`에 스케줄러 전용 비밀값을 추가합니다 (아무 긴 랜덤 문자열).
+
+```bash
+# .env 에 추가
+CRON_SECRET="본인이_정한_긴_랜덤_문자열"
+```
+
+`.env` 수정 후 앱 컨테이너를 **삭제 후 다시 run** 해야 env가 반영됩니다.
+
+**2) 서버에서 cron 등록**
+
+한 번만 설정하면 됩니다.
+
+```bash
+crontab -e
+```
+
+아래 한 줄을 추가합니다. (서버가 **UTC**이면 00:00 KST = 15:00 UTC 이므로 `0 15 * * *` 사용. 서버가 **Asia/Seoul**이면 `0 0 * * *` 사용.)
+
+```cron
+# 매일 00:00 KST에 실행 (서버 타임존이 UTC인 경우)
+0 15 * * * curl -s -H "Authorization: Bearer 본인CRON_SECRET값" http://localhost:3000/api/cron/cleanup-expired
+```
+
+또는 서버 타임존을 한국으로 두었다면:
+
+```cron
+TZ=Asia/Seoul
+0 0 * * * curl -s -H "Authorization: Bearer 본인CRON_SECRET값" http://localhost:3000/api/cron/cleanup-expired
+```
+
+`본인CRON_SECRET값`은 `.env`에 넣은 `CRON_SECRET` 값과 동일하게 넣습니다.
+
+**3) 동작 확인**
+
+수동으로 한 번 호출해 보기:
+
+```bash
+curl -s -H "Authorization: Bearer 본인CRON_SECRET값" http://localhost:3000/api/cron/cleanup-expired
+```
+
+응답 예: `{"ok":true,"deleted":0,"cutoff":"2026-02-15T00:00:00.000+09:00"}` (삭제된 건수가 0이어도 정상).
 
 ---
 

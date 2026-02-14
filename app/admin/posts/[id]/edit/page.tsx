@@ -14,6 +14,12 @@ const DAY_OPTIONS = [
   { label: '일', value: 'SUN' },
 ];
 
+const REGION_OPTIONS = [
+  { label: '강남', value: 'GANGNAM' },
+  { label: '홍대', value: 'HONGDAE' },
+  { label: '기타', value: 'ETC' },
+];
+
 export default async function EditPostPage({
   params,
 }: {
@@ -30,6 +36,7 @@ export default async function EditPostPage({
   if (!post) notFound();
 
   const classDaysSet = new Set((post.classDays || '').split(',').filter(Boolean));
+  const regionSet = new Set((post.region || '').split(',').filter(Boolean));
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-10">
@@ -58,17 +65,21 @@ export default async function EditPostPage({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label htmlFor="region" className="block text-sm font-semibold text-gray-700">지역</label>
-            <select
-              id="region"
-              name="region"
-              defaultValue={post.region ?? 'GANGNAM'}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-slate-500 focus:outline-none transition-colors bg-white"
-            >
-              <option value="GANGNAM">강남</option>
-              <option value="HONGDAE">홍대</option>
-              <option value="ETC">기타</option>
-            </select>
+            <label className="block text-sm font-semibold text-gray-700">지역 (복수 선택 가능)</label>
+            <div className="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              {REGION_OPTIONS.map((opt) => (
+                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="region"
+                    value={opt.value}
+                    defaultChecked={regionSet.has(opt.value)}
+                    className="w-4 h-4 text-slate-600 rounded focus:ring-slate-500"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <label htmlFor="danceType" className="block text-sm font-semibold text-gray-700">수업 종류</label>

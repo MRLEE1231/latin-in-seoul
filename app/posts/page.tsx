@@ -32,6 +32,12 @@ const DAY_OPTIONS: { label: string; value?: string }[] = [
   { label: '일', value: 'SUN' },
 ];
 
+const regionLabelMap: Record<string, string> = {
+  GANGNAM: '강남',
+  HONGDAE: '홍대',
+  ETC: '기타',
+};
+
 const danceTypeMap: Record<string, string> = {
   SALSA: '살사',
   BACHATA: '바차타',
@@ -101,9 +107,21 @@ export default async function PostsPage({
         } as Prisma.PostWhereInput)
       : undefined;
 
+  // 지역이 쉼표로 복수 저장된 경우에도 필터 매칭 (예: region=GANGNAM → 'GANGNAM' 또는 'GANGNAM,HONGDAE' 등)
+  const regionWhere: Prisma.PostWhereInput | undefined = region
+    ? ({
+        OR: [
+          { region: { equals: region } },
+          { region: { startsWith: `${region},` } },
+          { region: { endsWith: `,${region}` } },
+          { region: { contains: `,${region},` } },
+        ],
+      } as Prisma.PostWhereInput)
+    : undefined;
+
   const posts = await prisma.post.findMany({
     where: {
-      ...(region && { region }),
+      ...(regionWhere && regionWhere),
       ...(danceType && { danceType }),
       ...(day && { classDays: { contains: day } }),
       ...(keyword && keyword.trim() && { keywords: { contains: keyword.trim() } }),
@@ -253,14 +271,9 @@ export default async function PostsPage({
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         {posts.map((post) => {
           const thumbnail = post.images[0];
-          const regionLabel =
-            post.region === 'GANGNAM'
-              ? '강남'
-              : post.region === 'HONGDAE'
-              ? '홍대'
-              : post.region === 'ETC'
-              ? '기타'
-              : undefined;
+          const regionLabel = post.region
+            ? post.region.split(',').map((r) => r.trim()).filter(Boolean).map((r) => regionLabelMap[r] || r).join(' · ')
+            : undefined;
           const danceTypeLabel =
             post.danceType === 'SALSA'
               ? '살사'

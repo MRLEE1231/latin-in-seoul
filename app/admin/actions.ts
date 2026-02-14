@@ -13,7 +13,8 @@ export async function createPost(formData: FormData): Promise<CreatePostResult> 
   try {
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
-    const region = formData.get('region') as string;
+    const regionValues = formData.getAll('region') as string[];
+    const region = regionValues.filter(Boolean).length > 0 ? regionValues.filter(Boolean).join(',') : undefined;
     const danceType = formData.get('danceType') as string;
     const instructorName = formData.get('instructorName') as string;
     const classDescription = formData.get('classDescription') as string;
@@ -100,7 +101,8 @@ export async function updatePost(formData: FormData) {
 
   const title = formData.get('title') as string;
   const content = formData.get('content') as string;
-  const region = formData.get('region') as string;
+  const regionValues = formData.getAll('region') as string[];
+  const region = regionValues.filter(Boolean).length > 0 ? regionValues.filter(Boolean).join(',') : null;
   const danceType = formData.get('danceType') as string;
   const instructorName = formData.get('instructorName') as string;
   const classDescription = formData.get('classDescription') as string;
