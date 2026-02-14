@@ -61,33 +61,33 @@ export default async function PostDetailPage({
         {/* 이미지 섹션 */}
         <PostImageViewer images={post.images.map(img => ({ id: img.id.toString(), imageUrl: img.imageUrl }))} />
 
-        {/* 본문: 항목별 정리 */}
-        <div className="px-4 pb-6 border-t border-gray-100">
-          <dl className="divide-y divide-gray-100 text-sm">
+        {/* 본문: 항목별 정리 (다크모드에서 라벨·값 모두 가독성 확보) */}
+        <div className="px-4 pb-6 border-t border-gray-100 dark:border-gray-800">
+          <dl className="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
             {post.title && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">제목</dt>
-                <dd className="text-gray-900 font-medium">{post.title}</dd>
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">제목</dt>
+                <dd className="text-gray-900 dark:text-gray-100 font-medium">{post.title}</dd>
               </div>
             )}
             {post.instructorName && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">강사</dt>
-                <dd className="text-gray-900">{post.instructorName}</dd>
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">강사</dt>
+                <dd className="text-gray-900 dark:text-gray-100">{post.instructorName}</dd>
               </div>
             )}
             {post.region && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">지역</dt>
-                <dd className="text-gray-900">
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">지역</dt>
+                <dd className="text-gray-900 dark:text-gray-100">
                   {post.region.split(',').map((r) => r.trim()).filter(Boolean).map((r) => regionMap[r] || r).join(' · ')}
                 </dd>
               </div>
             )}
             {(post.startDate || post.endDate) && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">기간</dt>
-                <dd className="text-gray-900">
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">기간</dt>
+                <dd className="text-gray-900 dark:text-gray-100">
                   {post.startDate && post.endDate
                     ? `${new Date(post.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(post.endDate).toLocaleDateString('ko-KR')}`
                     : post.startDate
@@ -98,28 +98,28 @@ export default async function PostDetailPage({
             )}
             {post.danceType && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">종류</dt>
-                <dd className="text-gray-900">{danceTypeMap[post.danceType] || post.danceType}</dd>
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">종류</dt>
+                <dd className="text-gray-900 dark:text-gray-100">{danceTypeMap[post.danceType] || post.danceType}</dd>
               </div>
             )}
             {(post as { classDays?: string }).classDays && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">요일</dt>
-                <dd className="text-gray-900">
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">요일</dt>
+                <dd className="text-gray-900 dark:text-gray-100">
                   {(post as { classDays: string }).classDays.split(',').map((d: string) => dayMap[d] || d).join(' · ')}
                 </dd>
               </div>
             )}
             {post.content?.trim() && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">본문</dt>
-                <dd className="text-gray-800 whitespace-pre-wrap leading-snug">{post.content}</dd>
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">본문</dt>
+                <dd className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-snug">{post.content}</dd>
               </div>
             )}
             {(post as { keywords?: string }).keywords && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">키워드</dt>
-                <dd className="text-slate-600 flex flex-wrap gap-x-2 gap-y-1">
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">키워드</dt>
+                <dd className="text-slate-600 dark:text-slate-400 flex flex-wrap gap-x-2 gap-y-1">
                   {(post as { keywords: string }).keywords.split(',').filter(Boolean).map((k) => (
                     <span key={k}>#{k.trim()}</span>
                   ))}
@@ -128,13 +128,13 @@ export default async function PostDetailPage({
             )}
             {post.classDescription && (
               <div className="py-3">
-                <dt className="text-xs font-bold text-gray-400 mb-1">수업 요약</dt>
-                <dd className="text-gray-700">{post.classDescription}</dd>
+                <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">수업 요약</dt>
+                <dd className="text-gray-700 dark:text-gray-300">{post.classDescription}</dd>
               </div>
             )}
             <div className="py-3">
-              <dt className="text-xs font-bold text-gray-400 mb-1">등록일</dt>
-              <dd className="text-gray-500 text-xs">
+              <dt className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-1">등록일</dt>
+              <dd className="text-gray-500 dark:text-gray-400 text-xs">
                 {new Date(post.createdAt).toLocaleDateString('ko-KR', {
                   year: 'numeric',
                   month: 'long',
