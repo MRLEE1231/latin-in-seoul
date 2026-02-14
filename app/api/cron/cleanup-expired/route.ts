@@ -9,10 +9,19 @@ import { revalidatePath } from 'next/cache';
  *
  * 인증: Authorization: Bearer <CRON_SECRET> (환경 변수 CRON_SECRET과 일치해야 함)
  */
+function normalizeSecret(value: string | undefined): string {
+  if (value == null) return '';
+  const s = value.trim();
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    return s.slice(1, -1);
+  }
+  return s;
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const cronSecret = process.env.CRON_SECRET;
+  const token = (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)?.trim() ?? '';
+  const cronSecret = normalizeSecret(process.env.CRON_SECRET);
 
   if (!cronSecret || token !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
