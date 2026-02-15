@@ -36,6 +36,9 @@ yarn-error.log*
 # sqlite
 *.db
 
+# 서버 일자별 로그 (scripts/docker-log-to-daily.sh)
+/logs/
+
 # vercel
 .vercel
 

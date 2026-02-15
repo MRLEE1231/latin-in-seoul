@@ -352,7 +352,9 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 # 빌드 시 .env 의 DATABASE_URL 을 넘겨야 앱이 DB에 연결함 (Next.js 빌드 시 사용)
 docker build --build-arg DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2- | tr -d '\"')" -t latin-in-seoul .
 docker run -d --name latin-app --network latin-net -p 3000:3000 \
-  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
+  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+  latin-in-seoul
 docker exec -it latin-app npx prisma migrate deploy
 ```
 
@@ -375,7 +377,9 @@ docker run -d --name latin-postgres --network latin-net -p 5432:5432 \
   -v latin_postgres_data:/var/lib/postgresql/data --restart unless-stopped postgres:16-alpine
 docker build --build-arg DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2- | tr -d '\"')" -t latin-in-seoul .
 docker run -d --name latin-app --network latin-net -p 3000:3000 \
-  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
+  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+  latin-in-seoul
 docker exec -it latin-app npx prisma migrate deploy
 docker exec -it latin-app node /app/prisma/seed.mjs
 ```
@@ -393,6 +397,68 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 ```
 
 정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build --build-arg DATABASE_URL=...` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다. 빌드 시 반드시 `.env`의 `DATABASE_URL`을 `--build-arg`로 넘기세요.
+
+#### 3.5.1 앱 로그 파일 (Docker json-file)
+
+위 `docker run`에 `--log-driver json-file --log-opt max-size=10m --log-opt max-file=3` 를 넣으면, 앱의 stdout/stderr가 **파일**로 남고, 파일당 최대 10MB·최대 3개까지 로테이션됩니다.
+
+- **로그 파일 경로 확인**
+  ```bash
+  sudo docker inspect latin-app --format '{{.LogPath}}'
+  ```
+  예: `/var/lib/docker/containers/<컨테이너ID>/<컨테이너ID>-json.log`
+
+- **실시간 보기**
+  ```bash
+  sudo tail -f $(sudo docker inspect latin-app --format '{{.LogPath}}')
+  ```
+  또는 기존처럼: `sudo docker logs -f latin-app`
+
+- **최근 100줄만 보기**
+  ```bash
+  sudo tail -100 $(sudo docker inspect latin-app --format '{{.LogPath}}')
+  ```
+
+컨테이너를 삭제하면 해당 로그 파일도 삭제됩니다. 같은 옵션으로 다시 `docker run` 하면 새 로그 파일이 생성됩니다.
+
+**일자별 로그 파일로 정리하기 (선택)**
+
+Docker 기본 로그는 파일명이 컨테이너 ID로 고정되어 있어, **날짜별**로 보려면 아래 스크립트를 cron으로 돌립니다.
+
+1. **스크립트**  
+   프로젝트에 `scripts/docker-log-to-daily.sh` 가 있습니다.  
+   Docker의 json 로그를 읽어 `logs/` 아래에 **일자별 파일**로 씁니다.
+
+   - **파일 위치**: `~/latin-in-seoul/logs/`
+   - **파일명 예시**: `latin-app-2026-02-18.log`, `latin-app-2026-02-19.log`
+   - **한 줄 형식**: `2026-02-18T12:34:56.789Z [stdout] 로그 메시지`
+
+2. **필요 패키지**  
+   `jq` 가 필요합니다. 없으면 설치:
+   ```bash
+   sudo apt update && sudo apt install -y jq
+   ```
+
+3. **수동 실행**
+   ```bash
+   cd ~/latin-in-seoul
+   chmod +x scripts/docker-log-to-daily.sh
+   ./scripts/docker-log-to-daily.sh
+   ```
+   (인자 없으면 컨테이너 이름 `latin-app` 사용. 다른 이름이면 `./scripts/docker-log-to-daily.sh 내컨테이너이름`)
+
+4. **cron 등록 (5분마다)**  
+   `crontab -e` 후 다음 한 줄 추가 (경로는 서버 실제 경로로 수정):
+   ```cron
+   */5 * * * * /home/ubuntu/latin-in-seoul/scripts/docker-log-to-daily.sh
+   ```
+   Ubuntu 기본 사용자 이름이 `ubuntu`가 아니면 경로를 바꾸세요 (예: `/home/본인사용자/latin-in-seoul/scripts/docker-log-to-daily.sh`).
+
+5. **확인**
+   ```bash
+   ls -la ~/latin-in-seoul/logs/
+   tail -50 ~/latin-in-seoul/logs/latin-app-$(date +%Y-%m-%d).log
+   ```
 
 ### 3.6 종료된 수업 자동 삭제 스케줄러 (매일 00:00)
 
