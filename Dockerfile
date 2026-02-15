@@ -3,6 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# DATABASE_URL at build time so Next.js/Prisma use it (runtime value comes from --env-file when running the container)
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 RUN npm ci || npm install
 
@@ -46,6 +50,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Sync DB schema then start (DATABASE_URL must be set)
-ENV DATABASE_URL="file:./prisma/dev.db"
-CMD ["sh", "-c", "npx prisma db push 2>/dev/null || true && node server.js"]
+# DATABASE_URL must be provided at runtime via --env-file (no default; avoids wrong URL baked in)
+CMD ["sh", "-c", "npx prisma migrate deploy 2>/dev/null || true && node server.js"]

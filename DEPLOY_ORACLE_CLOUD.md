@@ -349,7 +349,8 @@ git pull origin main
 
 # 기존 앱 컨테이너만 재배포할 때 (Postgres는 이미 떠 있음)
 docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
-docker build -t latin-in-seoul .
+# 빌드 시 .env 의 DATABASE_URL 을 넘겨야 앱이 DB에 연결함 (Next.js 빌드 시 사용)
+docker build --build-arg DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2- | tr -d '\"')" -t latin-in-seoul .
 docker run -d --name latin-app --network latin-net -p 3000:3000 \
   -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
 docker exec -it latin-app npx prisma migrate deploy
@@ -372,7 +373,7 @@ docker network create latin-net 2>/dev/null || true
 docker run -d --name latin-postgres --network latin-net -p 5432:5432 \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=비밀번호 -e POSTGRES_DB=latin_in_seoul \
   -v latin_postgres_data:/var/lib/postgresql/data --restart unless-stopped postgres:16-alpine
-docker build -t latin-in-seoul .
+docker build --build-arg DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2- | tr -d '\"')" -t latin-in-seoul .
 docker run -d --name latin-app --network latin-net -p 3000:3000 \
   -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped latin-in-seoul
 docker exec -it latin-app npx prisma migrate deploy
@@ -391,7 +392,7 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 # .env 를 Postgres용으로 수정 후, 위 3)의 네트워크·postgres·앱 실행·migrate·seed 순서 실행
 ```
 
-정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build -t latin-in-seoul .` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다.
+정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build --build-arg DATABASE_URL=...` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다. 빌드 시 반드시 `.env`의 `DATABASE_URL`을 `--build-arg`로 넘기세요.
 
 ### 3.6 종료된 수업 자동 삭제 스케줄러 (매일 00:00)
 
