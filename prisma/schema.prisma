@@ -23,6 +23,7 @@ model Post {
   endDate          DateTime?   // 종강일 (수업 기간 종료)
   keywords         String?     // 해시태그/키워드 (쉼표로 구분, 예: 초보,소셜,bachata)
   classDescription String?     // 수업설명
+  viewCount        Int         @default(0) // 조회수 (상세 페이지 로드 시 1회 증가)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   images           PostImage[] // 이미지 목록
@@ -51,4 +52,13 @@ model PostImage {
 
   @@map("post_images")
   @@index([postId])
+}
+
+// 일별 방문자 수 (당일 1회 쿠키 기준)
+model DailyVisit {
+  id    Int      @id @default(autoincrement())
+  date  DateTime @unique @db.Date // 날짜만 (KST 기준 일자)
+  count Int      @default(0)
+
+  @@map("daily_visits")
 }

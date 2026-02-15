@@ -323,6 +323,12 @@ export default async function PostsPage({
                     </span>
                   )}
                 </div>
+                {/* 관리자만: 이미지 우측 하단 조회수 (인스타그램 스타일) */}
+                {adminSession && (
+                  <div className="absolute right-2 bottom-2 rounded bg-black/50 px-1.5 py-0.5 text-[10px] font-medium text-white/95 backdrop-blur-sm">
+                    조회 {(post as { viewCount?: number }).viewCount ?? 0}
+                  </div>
+                )}
               </div>
 
               {/* 카드 하단 정보 */}

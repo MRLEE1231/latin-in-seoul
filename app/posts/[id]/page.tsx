@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import PostImageViewer from '@/app/components/PostImageViewer';
+import ViewCountTracker from '@/app/components/ViewCountTracker';
 
 export default async function PostDetailPage({
   params,
@@ -58,6 +59,7 @@ export default async function PostDetailPage({
       </nav>
 
       <main className="mx-auto max-w-xl overflow-hidden">
+        <ViewCountTracker postId={post.id} />
         {/* 이미지 섹션 */}
         <PostImageViewer images={post.images.map(img => ({ id: img.id.toString(), imageUrl: img.imageUrl }))} />
 
