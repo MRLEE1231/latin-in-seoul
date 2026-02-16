@@ -402,6 +402,11 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 
 **증상:** `/posts` 등에서 "Application error", 로그에 `Authentication failed`, `P1000`.
 
+**재발 방지용 코드 반영 (이미 적용됨)**  
+- **Prisma가 런타임 `DATABASE_URL` 사용** (`lib/prisma.ts`): 빌드 시 인라인된 값에 의존하지 않고, 컨테이너 실행 시 `--env-file` 로 넘긴 값을 씁니다. 그래서 `--build-arg` 없이 빌드해도 동작합니다.  
+- **앱 기동 전 DB 대기** (`scripts/wait-for-db.sh` + Dockerfile CMD): 컨테이너가 뜰 때 `latin-postgres:5432`에 연결될 때까지 기다린 뒤에만 `node server.js`를 띄웁니다. Postgres가 늦게 떠도 앱이 먼저 요청을 받지 않아 첫 연결 실패가 나는 경우를 줄입니다.  
+위 두 가지가 적용된 이미지로 배포하면 P1000 재발 가능성이 크게 줄어듭니다.
+
 **원인 요약**
 
 1. **앱이 Postgres보다 먼저 떠서 첫 연결이 실패한 경우**  

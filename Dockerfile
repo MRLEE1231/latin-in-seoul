@@ -39,6 +39,8 @@ COPY --from=builder /app/package.json ./
 RUN npm install prisma bcrypt effect --omit=dev && chown -R nextjs:nodejs /app
 COPY --from=builder /app/prisma/seed.mjs ./prisma/seed.mjs
 COPY --from=builder /app/prisma/seed.mjs ./seed.mjs
+COPY --from=builder /app/scripts/wait-for-db.sh ./scripts/wait-for-db.sh
+RUN chmod +x ./scripts/wait-for-db.sh && chown nextjs:nodejs ./scripts/wait-for-db.sh
 
 # SQLite DB & uploads (use volume in production for persistence)
 RUN mkdir -p /app/prisma /app/public/uploads && chown -R nextjs:nodejs /app/prisma /app/public/uploads
@@ -50,5 +52,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# DATABASE_URL must be provided at runtime via --env-file (no default; avoids wrong URL baked in)
-CMD ["sh", "-c", "npx prisma migrate deploy 2>/dev/null || true && node server.js"]
+# DB 연결 가능할 때까지 대기 후 마이그레이션·앱 기동 (Postgres보다 앱이 먼저 떠서 P1000 나는 것 방지)
+CMD ["sh", "-c", "./scripts/wait-for-db.sh latin-postgres 5432 && npx prisma migrate deploy 2>/dev/null || true && node server.js"]
