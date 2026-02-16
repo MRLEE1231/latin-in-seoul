@@ -14,11 +14,15 @@ OFFSET_FILE="${LOGDIR}/.${CONTAINER}.offset"
 mkdir -p "$LOGDIR"
 
 LOGPATH=$(sudo docker inspect "$CONTAINER" --format '{{.LogPath}}' 2>/dev/null || true)
-if [[ -z "$LOGPATH" || ! -f "$LOGPATH" ]]; then
+if [[ -z "$LOGPATH" ]]; then
+  exit 0
+fi
+# Docker 로그 파일은 root만 읽을 수 있음
+if ! sudo test -r "$LOGPATH"; then
   exit 0
 fi
 
-SIZE=$(stat -c %s "$LOGPATH" 2>/dev/null || true)
+SIZE=$(sudo stat -c %s "$LOGPATH" 2>/dev/null || true)
 [[ -z "$SIZE" ]] && exit 0
 
 OFFSET=0
@@ -43,8 +47,8 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# 새로 쌓인 부분만 읽어서 한 줄씩 처리
-tail -c +$((OFFSET + 1)) "$LOGPATH" 2>/dev/null | while IFS= read -r line; do
+# 새로 쌓인 부분만 읽어서 한 줄씩 처리 (로그 파일은 root 권한이라 sudo)
+sudo tail -c +$((OFFSET + 1)) "$LOGPATH" 2>/dev/null | while IFS= read -r line; do
   date_part=$(echo "$line" | jq -r '.time[0:10]' 2>/dev/null)
   stream=$(echo "$line" | jq -r '.stream' 2>/dev/null)
   time_full=$(echo "$line" | jq -r '.time' 2>/dev/null)

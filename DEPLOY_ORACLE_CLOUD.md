@@ -398,6 +398,45 @@ docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
 
 정리: **항상 서버에서 `git pull` → (필요 시 Postgres 실행) → `docker build --build-arg DATABASE_URL=...` → 앱 컨테이너 실행 → `prisma migrate deploy`** 하면 됩니다. 빌드 시 반드시 `.env`의 `DATABASE_URL`을 `--build-arg`로 넘기세요.
 
+#### 3.5.2 DB 인증 오류(P1000)가 자꾸 날 때
+
+**증상:** `/posts` 등에서 "Application error", 로그에 `Authentication failed`, `P1000`.
+
+**원인 요약**
+
+1. **앱이 Postgres보다 먼저 떠서 첫 연결이 실패한 경우**  
+   VM/도커 재시작 시 `latin-app`이 먼저 뜨면, Postgres가 아직 준비 전이라 연결에 실패하고, 그 실패 상태가 Prisma 연결 풀에 남을 수 있습니다. 그 뒤로는 재시작할 때까지 계속 P1000처럼 보일 수 있습니다.
+2. **이미지가 예전에 빌드된 경우**  
+   `--build-arg DATABASE_URL=...` 없이 빌드한 이미지를 쓰면, Next.js에 잘못된(또는 빈) DB URL이 박혀 있어서, 컨테이너만 재시작해도 해결되지 않습니다.
+3. **연결 풀 고장**  
+   Postgres가 잠깐 끊겼다가 복구돼도, 앱은 이미 끊긴 연결을 쓰고 있으면 같은 에러가 납니다. 앱만 재시작하면 새 풀이 생겨서 해결됩니다.
+
+**당장 복구 (이미 해보신 순서)**
+
+```bash
+sudo docker exec -it latin-postgres psql -U postgres -c "ALTER USER postgres PASSWORD 'admin';"
+# 그다음 앱만 재시작 (위 2)의 docker stop/rm/run)
+```
+
+**재발 방지**
+
+- **한 번은 꼭 올바른 URL로 이미지 다시 빌드**  
+  앱 재시작만으로 고쳐졌다가 또 난다면, 예전에 빌드된 이미지를 쓰는 경우가 많습니다. 아래처럼 **한 번** 빌드해 두세요.
+  ```bash
+  cd ~/latin-in-seoul
+  sudo docker stop latin-app && sudo docker rm latin-app
+  sudo docker build --build-arg DATABASE_URL="$(grep DATABASE_URL .env | cut -d= -f2- | tr -d '\"')" -t latin-in-seoul .
+  sudo docker run -d --name latin-app ...  # 위 2)와 동일한 run 옵션
+  ```
+- **VM/도커 재시작 후에는 Postgres 먼저 확인 후 앱 실행**  
+  서버 재부팅이나 도커 재시작 후에는 Postgres가 먼저 완전히 뜬 다음 앱을 띄우는 편이 안전합니다. 수동 재시작 시:
+  ```bash
+  sudo docker start latin-postgres
+  sleep 5
+  sudo docker start latin-app
+  ```
+  (이미 `docker run`으로 띄워 두었다면 `restart unless-stopped` 때문에 자동으로 뜨지만, Postgres가 늦게 준비되면 위 현상이 날 수 있습니다.)
+
 #### 3.5.1 앱 로그 파일 (Docker json-file)
 
 위 `docker run`에 `--log-driver json-file --log-opt max-size=10m --log-opt max-file=3` 를 넣으면, 앱의 stdout/stderr가 **파일**로 남고, 파일당 최대 10MB·최대 3개까지 로테이션됩니다.
