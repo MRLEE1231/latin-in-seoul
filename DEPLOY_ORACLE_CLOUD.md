@@ -499,6 +499,17 @@ Docker 기본 로그는 파일명이 컨테이너 ID로 고정되어 있어, **�
    tail -50 ~/latin-in-seoul/logs/latin-app-$(date +%Y-%m-%d).log
    ```
 
+6. **7일 지난 로그 자동 삭제 (매일 00:30)**  
+   `logs/` 아래 일자별 로그는 7일이 지나면 자동 삭제되게 하려면, `scripts/cleanup-old-logs.sh` 를 cron에 등록합니다.
+
+   - **스크립트**: `scripts/cleanup-old-logs.sh` — `logs/` 안에서 수정 시각이 7일을 넘긴 `*.log` 만 삭제 (`.offset` 등은 유지).
+   - **cron 등록**: `crontab -e` 후 다음 한 줄 추가 (경로는 서버 실제 경로로 수정):
+   ```cron
+   30 0 * * * /home/ubuntu/latin-in-seoul/scripts/cleanup-old-logs.sh
+   ```
+   - **실행 권한** (최초 1회): `chmod +x /home/ubuntu/latin-in-seoul/scripts/cleanup-old-logs.sh`
+   - **수동 실행**: `./scripts/cleanup-old-logs.sh` (인자 없으면 프로젝트의 `logs/` 사용).
+
 ### 3.6 종료된 수업 자동 삭제 스케줄러 (매일 00:00)
 
 **동작:** 종료일(`endDate`)이 **오늘 00:00 KST** 이전인 수업 게시글을 매일 자동 삭제합니다.
