@@ -14,16 +14,20 @@
     "db:seed": "prisma db push && npx tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@google/generative-ai": "^0.24.1",
     "@prisma/adapter-better-sqlite3": "^7.4.0",
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "^6.19.2",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "next": "16.1.6",
+    "openai": "^6.22.0",
     "pg": "^8.18.0",
     "prisma": "^6.19.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "tesseract.js": "^7.0.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

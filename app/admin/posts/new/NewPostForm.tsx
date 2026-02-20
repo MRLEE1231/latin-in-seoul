@@ -1,14 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createPost } from '../../actions';
+import type { ExtractedFields } from '@/lib/extract-from-image/tesseract-parser';
+import type { AIProvider } from '@/lib/extract-from-image/ai-prompt';
+
+const AI_PROVIDERS: { value: AIProvider; label: string }[] = [
+  { value: 'gemini', label: 'Gemini (Google)' },
+  { value: 'openai', label: 'ChatGPT (OpenAI)' },
+  { value: 'copilot', label: 'Copilot (Azure OpenAI)' },
+];
 
 export default function NewPostForm() {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [extractPending, setExtractPending] = useState<'ai' | 'free' | null>(null);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
+
+  function fillForm(data: ExtractedFields) {
+    const form = formRef.current;
+    if (!form) return;
+    if (data.title) (form.elements.namedItem('title') as HTMLInputElement).value = data.title;
+    if (data.danceType) (form.elements.namedItem('danceType') as HTMLSelectElement).value = data.danceType;
+    if (data.instructorName) (form.elements.namedItem('instructorName') as HTMLInputElement).value = data.instructorName;
+    if (data.startDate) (form.elements.namedItem('startDate') as HTMLInputElement).value = data.startDate;
+    if (data.endDate) (form.elements.namedItem('endDate') as HTMLInputElement).value = data.endDate;
+    if (data.keywords) (form.elements.namedItem('keywords') as HTMLInputElement).value = data.keywords;
+    if (data.region?.length) {
+      form.querySelectorAll<HTMLInputElement>('input[name="region"]').forEach((el) => {
+        el.checked = data.region!.includes(el.value);
+      });
+    }
+    if (data.classDays?.length) {
+      form.querySelectorAll<HTMLInputElement>('input[name="classDays"]').forEach((el) => {
+        el.checked = data.classDays!.includes(el.value);
+      });
+    }
+  }
+
+  async function handleExtract(mode: 'ai' | 'free') {
+    const input = imagesInputRef.current;
+    if (!input?.files?.length) {
+      setExtractError('위 "이미지 파일 추가"에서 먼저 이미지를 선택해 주세요.');
+      return;
+    }
+    setExtractError(null);
+    setExtractPending(mode);
+    try {
+      const formData = new FormData();
+      formData.set('image', input.files[0]);
+      formData.set('mode', mode);
+      if (mode === 'ai') formData.set('provider', aiProvider);
+      const res = await fetch('/api/admin/extract-from-image', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (!res.ok) {
+        setExtractError(json.error || '추출에 실패했습니다.');
+        return;
+      }
+      if (json.success && json.data) {
+        console.log('[이미지 추출] JSON 항목:', json.data, '(출처:', json.source ?? 'unknown', ')');
+        setExtractError(null);
+        setTimeout(() => fillForm(json.data), 0);
+      } else {
+        setExtractError(json.error || '추출 결과가 없습니다.');
+      }
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : '추출 요청에 실패했습니다.');
+    } finally {
+      setExtractPending(null);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,7 +107,7 @@ export default function NewPostForm() {
         <h1 className="text-3xl font-bold">새 수업 추가 (Admin)</h1>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100" encType="multipart/form-data">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-100" encType="multipart/form-data">
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {error}
@@ -190,6 +257,7 @@ export default function NewPostForm() {
           <label className="block text-sm font-semibold text-gray-700">이미지 파일 추가 (최대 5개)</label>
           <div className="space-y-2">
             <input
+              ref={imagesInputRef}
               type="file"
               name="images"
               multiple
@@ -198,6 +266,35 @@ export default function NewPostForm() {
             />
           </div>
           <p className="text-xs text-gray-400 italic">이미지 파일을 선택해 주세요. 여러 장을 한 번에 선택할 수 있습니다.</p>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <span className="text-xs text-slate-600">폼 자동 채우기:</span>
+            <select
+              value={aiProvider}
+              onChange={(e) => setAiProvider(e.target.value as AIProvider)}
+              className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-700 bg-white focus:border-slate-500 focus:outline-none"
+            >
+              {AI_PROVIDERS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => handleExtract('ai')}
+              disabled={!!extractPending}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {extractPending === 'ai' ? '추출 중…' : 'AI로 추출'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExtract('free')}
+              disabled={!!extractPending}
+              className="rounded-lg bg-slate-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {extractPending === 'free' ? '추출 중…' : '무료로 추출 (Tesseract)'}
+            </button>
+          </div>
+          {extractError && <p className="text-xs text-red-600">{extractError}</p>}
         </div>
 
         <div className="pt-4">

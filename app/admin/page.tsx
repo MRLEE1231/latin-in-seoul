@@ -68,9 +68,9 @@ export default async function AdminPage() {
           <p className="text-gray-500 text-sm mt-1">수업 목록 관리 및 신규 등록</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-xl border border-gray-200 bg-slate-50 px-4 py-2 text-center min-w-[100px]">
-            <p className="text-xs text-gray-500">오늘 방문자</p>
-            <p className="text-xl font-bold text-slate-700">{todayVisit}</p>
+          <div className="rounded-xl border border-gray-200 bg-slate-50 px-4 py-2 text-center min-w-[100px] dark:border-slate-600 dark:bg-slate-800">
+            <p className="text-xs text-gray-500 dark:text-slate-400">오늘 방문자</p>
+            <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{todayVisit}</p>
           </div>
           <LogoutButton />
           <Link
