@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
+// 빌드 시 DB 없음 → 홈은 요청 시마다 렌더 (Docker 빌드 통과)
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const homeAds = await prisma.homeAd.findMany({
     orderBy: { order: 'asc' },

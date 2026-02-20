@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import FilterSection from '@/app/components/FilterSection';
@@ -294,18 +293,17 @@ export default async function PostsPage({
               href={`/posts/${post.id}`}
               className="group flex flex-col overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg border border-gray-100"
             >
-              {/* 대표 이미지 (4:5 비율) - Next/Image로 최적화·지연 로딩 */}
+              {/* 대표 이미지 (4:5 비율) - 업로드 이미지는 img로 직접 로드 (standalone/Docker에서 _next/image 400 방지) */}
               <div
                 className="relative w-full overflow-hidden bg-gray-100"
                 style={{ aspectRatio: '4 / 5' }}
               >
                 {thumbnail ? (
-                  <Image
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
                     src={thumbnail.imageUrl}
                     alt={post.title || '수업 이미지'}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
