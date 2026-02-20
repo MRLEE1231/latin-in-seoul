@@ -35,15 +35,16 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/package.json ./
 
-# Prisma CLI + bcrypt + effect (시드·db push용)
-RUN npm install prisma bcrypt effect --omit=dev && chown -R nextjs:nodejs /app
+# Prisma CLI + bcrypt + effect + sharp (시드·db push·업로드 압축 스크립트용)
+RUN npm install prisma bcrypt effect sharp --omit=dev && chown -R nextjs:nodejs /app
 COPY --from=builder /app/prisma/seed.mjs ./prisma/seed.mjs
 COPY --from=builder /app/prisma/seed.mjs ./seed.mjs
 COPY --from=builder /app/scripts/wait-for-db.sh ./scripts/wait-for-db.sh
-RUN chmod +x ./scripts/wait-for-db.sh && chown nextjs:nodejs ./scripts/wait-for-db.sh
+COPY --from=builder /app/scripts/compress-uploaded-images.mjs ./scripts/compress-uploaded-images.mjs
+RUN chmod +x ./scripts/wait-for-db.sh && chown nextjs:nodejs ./scripts/wait-for-db.sh ./scripts/compress-uploaded-images.mjs
 
-# SQLite DB & uploads (use volume in production for persistence)
-RUN mkdir -p /app/prisma /app/public/uploads && chown -R nextjs:nodejs /app/prisma /app/public/uploads
+# SQLite DB & uploads & 광고 이미지 (use volume in production for persistence)
+RUN mkdir -p /app/prisma /app/public/uploads /app/public/ads && chown -R nextjs:nodejs /app/prisma /app/public/uploads /app/public/ads
 
 USER nextjs
 

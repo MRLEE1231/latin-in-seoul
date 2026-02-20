@@ -653,6 +653,11 @@ server {
     listen 80;
     server_name your-domain.com www.your-domain.com;
 
+    # 메인 광고 이미지: 호스트의 public/ads에서 직접 서빙 (404 방지)
+    location /ads/ {
+        alias /home/ubuntu/latin-in-seoul/public/ads/;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -667,6 +672,8 @@ server {
     }
 }
 ```
+
+- **`/home/ubuntu/latin-in-seoul`** 부분을 실제 앱 경로로 바꾸세요 (예: `~/latin_in_seoul` 이면 `/home/ubuntu/latin_in_seoul`).
 
 ```bash
 sudo ln -sf /etc/nginx/sites-available/latin /etc/nginx/sites-enabled/
