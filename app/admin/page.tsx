@@ -72,13 +72,15 @@ export default async function AdminPage() {
             <p className="text-xs text-gray-500 dark:text-slate-400">오늘 방문자</p>
             <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{todayVisit}</p>
           </div>
-          <LogoutButton />
           <Link
             href="/admin/posts/new"
             className="rounded-xl bg-slate-600 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-slate-700 transition-all whitespace-nowrap"
           >
             + 새 수업 등록
           </Link>
+          <div className="ml-auto">
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
@@ -103,12 +105,10 @@ export default async function AdminPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold">
                 <tr>
-                  <th className="px-4 py-4 w-10 text-center">
-                    선택
-                  </th>
-                  <th className="px-4 py-4 w-20">번호</th>
-                  <th className="px-6 py-4">제목</th>
-                  <th className="px-6 py-4 text-right">관리</th>
+                  <th className="px-4 py-4 w-10 text-center" aria-label="선택" />
+                  <th className="px-4 py-4 w-20 text-center">번호</th>
+                  <th className="px-6 py-4 text-center">제목</th>
+                  <th className="px-6 py-4 text-center">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -139,11 +139,11 @@ export default async function AdminPage() {
                             {post.title || '제목 없음'}
                           </Link>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-3 py-3 sm:px-6 sm:py-4 text-right">
+                          <div className="flex flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
                             <Link
                               href={`/admin/posts/${post.id}/edit`}
-                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                              className="whitespace-nowrap rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-xs"
                             >
                               수정
                             </Link>
