@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 시스템 폰트 (Docker 빌드 시 Google Fonts fetch 불필요) */
+  --font-geist-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-geist-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", monospace;
 }
 
 @theme inline {

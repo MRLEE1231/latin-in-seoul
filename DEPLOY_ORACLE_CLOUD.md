@@ -442,6 +442,55 @@ sudo docker exec -it latin-postgres psql -U postgres -c "ALTER USER postgres PAS
   ```
   (이미 `docker run`으로 띄워 두었다면 `restart unless-stopped` 때문에 자동으로 뜨지만, Postgres가 늦게 준비되면 위 현상이 날 수 있습니다.)
 
+#### 3.5.3 로컬 PC에서 이미지 빌드 후 서버로 전달하기
+
+서버(1GB RAM 등)에서 `docker build`가 메모리 부족으로 멈출 때 사용합니다. **로컬 Windows에서 이미지를 빌드**한 뒤 파일로 저장해 서버에 복사하고, 서버에서는 `docker load`만 하면 됩니다.
+
+**1) 로컬 PC (PowerShell) — 프로젝트 폴더에서**
+
+```powershell
+cd C:\testWorkspace\latin_in_seoul
+
+# 이미지 빌드 (DATABASE_URL은 형식만 맞으면 됨, 서버와 동일한 값 권장)
+docker build --build-arg DATABASE_URL="postgresql://postgres:admin@latin-postgres:5432/latin_in_seoul" -t latin-in-seoul .
+
+# 빌드가 끝나면 이미지를 파일로 저장
+docker save latin-in-seoul -o latin-in-seoul.tar
+```
+
+- `DATABASE_URL`은 서버 `.env`와 같은 값으로 넣어도 되고, 빌드 시 실제 DB 연결은 안 하므로 형식만 맞으면 됩니다.
+- `latin-in-seoul.tar` 파일이 프로젝트 폴더에 생깁니다 (용량이 꽤 큼).
+
+**2) 로컬 → 서버로 파일 복사**
+
+PowerShell에서 (키 경로·서버 IP는 본인 환경에 맞게):
+
+```powershell
+scp -i "C:\Users\User\Downloads\키파일이름.key" latin-in-seoul.tar ubuntu@서버공인IP:~/
+```
+
+또는 **WinSCP** 등으로 `latin-in-seoul.tar`를 서버 홈(`~/`)으로 업로드해도 됩니다.
+
+**3) 서버에서 이미지 불러오기 및 컨테이너 실행**
+
+```bash
+cd ~
+docker load -i latin-in-seoul.tar
+
+cd ~/latin-in-seoul
+sudo docker stop latin-app 2>/dev/null; sudo docker rm latin-app 2>/dev/null
+sudo docker run -d --name latin-app --network latin-net -p 3000:3000 \
+  -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped \
+  --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+  latin-in-seoul
+sudo docker exec -it latin-app npx prisma migrate deploy
+```
+
+**4) 정리**
+
+- 배포할 때마다: 로컬에서 `git pull` → 코드 수정 후 `docker build` → `docker save` → 서버로 복사 → 서버에서 `docker load` → 기존 앱 컨테이너 제거 후 위 `docker run`으로 다시 실행.
+- `latin-in-seoul.tar`는 서버에서 다시 쓰지 않으면 삭제해도 됩니다: `rm ~/latin-in-seoul.tar`
+
 #### 3.5.1 앱 로그 파일 (Docker json-file)
 
 위 `docker run`에 `--log-driver json-file --log-opt max-size=10m --log-opt max-file=3` 를 넣으면, 앱의 stdout/stderr가 **파일**로 남고, 파일당 최대 10MB·최대 3개까지 로테이션됩니다.

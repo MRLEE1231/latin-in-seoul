@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import VisitRecorder from "./components/VisitRecorder";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+// Google Fonts 대신 시스템 폰트 사용 (Docker 빌드 시 네트워크 없어도 됨)
 export const metadata: Metadata = {
   title: "Latin in Seoul - 라틴 댄스 수업 게시판",
   description: "서울의 라틴 댄스 수업 정보를 찾아보세요",
@@ -26,9 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <VisitRecorder />
         <nav className="bg-white shadow-sm border-b">
           <div className="container mx-auto px-4 py-4">
