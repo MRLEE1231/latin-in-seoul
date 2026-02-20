@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { writeFile, unlink, mkdir } from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { compressIfNeeded } from '@/lib/image-compress';
 
 export type CreatePostResult = { success: true } | { success: false; error: string };
 
@@ -42,9 +43,13 @@ export async function createPost(formData: FormData): Promise<CreatePostResult> 
       const file = raw;
 
       const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+      let buffer = Buffer.from(bytes);
+      let fileExtension = path.extname(file.name).toLowerCase() || '.jpg';
 
-      const fileExtension = path.extname(file.name) || '.jpg';
+      const compressed = await compressIfNeeded(buffer, fileExtension);
+      buffer = compressed.buffer;
+      fileExtension = compressed.ext;
+
       const fileName = `${uuidv4()}${fileExtension}`;
       const relativePath = `/uploads/${fileName}`;
       const absolutePath = path.join(uploadsDir, fileName);
@@ -129,8 +134,13 @@ export async function updatePost(formData: FormData) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileExtension = path.extname(file.name);
+    let buffer = Buffer.from(bytes);
+    let fileExtension = path.extname(file.name).toLowerCase() || '.jpg';
+
+    const compressed = await compressIfNeeded(buffer, fileExtension);
+    buffer = compressed.buffer;
+    fileExtension = compressed.ext;
+
     const fileName = `${uuidv4()}${fileExtension}`;
     const relativePath = `/uploads/${fileName}`;
     const absolutePath = path.join(process.cwd(), 'public', 'uploads', fileName);

@@ -1,6 +1,18 @@
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
 
-export default function Home() {
+export default async function Home() {
+  const homeAds = await prisma.homeAd.findMany({
+    orderBy: { order: 'asc' },
+  });
+
+  const HOME_ADS = homeAds.map((ad) => ({
+    id: ad.id,
+    image: ad.image,
+    title: ad.title,
+    description: ad.description,
+    href: ad.href,
+  }));
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="container mx-auto px-4 py-16">
@@ -19,26 +31,50 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-2">살사</h2>
-            <p className="text-gray-600">
-              열정적인 쿠바의 리듬을 느껴보세요
-            </p>
+        {/* 광고 목록 (좌 1/4 이미지, 우 3/4 제목·내용) */}
+        <section className="mt-12">
+          <div className="space-y-4">
+            {HOME_ADS.map((ad) => {
+              const isExternal = ad.href.startsWith('http');
+              const content = (
+                <>
+                  <div className="w-1/4 shrink-0 overflow-hidden rounded-l-xl bg-slate-200 aspect-[4/3] min-h-[100px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ad.image}
+                      alt={ad.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col justify-center p-4">
+                    <h3 className="font-semibold text-gray-800 mb-1">{ad.title}</h3>
+                    <p className="text-sm text-gray-600 line-clamp-2">{ad.description}</p>
+                  </div>
+                </>
+              );
+              const cardClass =
+                'flex bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow';
+              if (isExternal) {
+                return (
+                  <a
+                    key={ad.id}
+                    href={ad.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cardClass}
+                  >
+                    {content}
+                  </a>
+                );
+              }
+              return (
+                <Link key={ad.id} href={ad.href} className={cardClass}>
+                  {content}
+                </Link>
+              );
+            })}
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-2">바차타</h2>
-            <p className="text-gray-600">
-              로맨틱한 도미니카의 멜로디
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-2">키좀바</h2>
-            <p className="text-gray-600">
-              아프리카의 감성적인 리듬
-            </p>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ model Post {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   images           PostImage[] // 이미지 목록
+  homeAds          HomeAd[]   // 메인 광고에서 이 수업을 선택한 경우
 
   @@map("posts")
 }
@@ -61,4 +62,22 @@ model DailyVisit {
   count Int      @default(0)
 
   @@map("daily_visits")
+}
+
+// 메인 페이지 추천 광고 (이미지 + 제목 + 설명 + 링크)
+model HomeAd {
+  id          Int      @id @default(autoincrement())
+  kind        String   @default("ETC") // 'CLASS'(수업) | 'ETC'(기타)
+  postId      Int?     // kind가 CLASS일 때 연결된 수업 게시글 ID
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  image       String   // 이미지 URL (업로드 파일 /ads/xxx 또는 수업 첫 이미지)
+  title       String
+  description String   @db.Text
+  href        String   // 링크 (/posts/123 또는 https://...)
+  order       Int      @default(0) // 노출 순서 (작을수록 먼저)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("home_ads")
+  @@index([postId])
 }

@@ -442,24 +442,35 @@ sudo docker exec -it latin-postgres psql -U postgres -c "ALTER USER postgres PAS
   ```
   (이미 `docker run`으로 띄워 두었다면 `restart unless-stopped` 때문에 자동으로 뜨지만, Postgres가 늦게 준비되면 위 현상이 날 수 있습니다.)
 
-#### 3.5.3 로컬 PC에서 이미지 빌드 후 서버로 전달하기
+#### 3.5.3 로컬 PC에서 이미지 빌드 후 서버로 전달하기 (권장)
 
-서버(1GB RAM 등)에서 `docker build`가 메모리 부족으로 멈출 때 사용합니다. **로컬 Windows에서 이미지를 빌드**한 뒤 파일로 저장해 서버에 복사하고, 서버에서는 `docker load`만 하면 됩니다.
+서버(1GB RAM 등)에서 `docker build`가 느리거나 메모리 부족으로 멈출 때 사용합니다. **로컬 Windows에서 이미지를 빌드**한 뒤 파일로 저장해 서버에 복사하고, 서버에서는 `docker load`만 하면 됩니다.
+
+**빠른 배포 체크리스트 (로컬 빌드)**
+
+| 순서 | 위치 | 할 일 |
+|------|------|--------|
+| 1 | 로컬 | `git pull` 후 아래 1) 빌드·저장 |
+| 2 | 로컬 | 2) `latin-in-seoul.tar`를 서버 `~/`로 복사 (scp/WinSCP) |
+| 3 | 서버 | 3) `docker load` → 기존 앱 중지·삭제 → `docker run` → `prisma migrate deploy` |
+
+---
 
 **1) 로컬 PC (PowerShell) — 프로젝트 폴더에서**
 
 ```powershell
 cd C:\testWorkspace\latin_in_seoul
 
-# 이미지 빌드 (DATABASE_URL은 형식만 맞으면 됨, 서버와 동일한 값 권장)
-docker build --build-arg DATABASE_URL="postgresql://postgres:admin@latin-postgres:5432/latin_in_seoul" -t latin-in-seoul .
+# 서버 .env 의 DATABASE_URL 과 동일한 값으로 (비밀번호만 실제 값으로)
+$env:DATABASE_URL = "postgresql://postgres:서버DB비밀번호@latin-postgres:5432/latin_in_seoul"
+docker build --build-arg DATABASE_URL=$env:DATABASE_URL -t latin-in-seoul .
 
 # 빌드가 끝나면 이미지를 파일로 저장
 docker save latin-in-seoul -o latin-in-seoul.tar
 ```
 
-- `DATABASE_URL`은 서버 `.env`와 같은 값으로 넣어도 되고, 빌드 시 실제 DB 연결은 안 하므로 형식만 맞으면 됩니다.
-- `latin-in-seoul.tar` 파일이 프로젝트 폴더에 생깁니다 (용량이 꽤 큼).
+- `DATABASE_URL`은 서버 `.env`와 **동일한 값**으로 넣으면 됩니다. 빌드 시 실제 DB 연결은 하지 않습니다.
+- `latin-in-seoul.tar` 파일이 프로젝트 폴더에 생깁니다 (약 500MB 전후).
 
 **2) 로컬 → 서버로 파일 복사**
 
@@ -478,18 +489,20 @@ cd ~
 docker load -i latin-in-seoul.tar
 
 cd ~/latin-in-seoul
-sudo docker stop latin-app 2>/dev/null; sudo docker rm latin-app 2>/dev/null
-sudo docker run -d --name latin-app --network latin-net -p 3000:3000 \
+docker stop latin-app 2>/dev/null; docker rm latin-app 2>/dev/null
+docker run -d --name latin-app --network latin-net -p 3000:3000 \
   -v $(pwd)/data/uploads:/app/public/uploads --env-file .env --restart unless-stopped \
   --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
   latin-in-seoul
-sudo docker exec -it latin-app npx prisma migrate deploy
+docker exec -it latin-app npx prisma migrate deploy
 ```
+
+- `sudo`가 필요하면 각 명령 앞에 `sudo`를 붙이세요.
 
 **4) 정리**
 
-- 배포할 때마다: 로컬에서 `git pull` → 코드 수정 후 `docker build` → `docker save` → 서버로 복사 → 서버에서 `docker load` → 기존 앱 컨테이너 제거 후 위 `docker run`으로 다시 실행.
-- `latin-in-seoul.tar`는 서버에서 다시 쓰지 않으면 삭제해도 됩니다: `rm ~/latin-in-seoul.tar`
+- **배포할 때마다**: 로컬 `git pull` → (코드 수정) → 1) 빌드·저장 → 2) 서버로 복사 → 3) 서버에서 load·run·migrate.
+- 서버에서 `latin-in-seoul.tar`는 한 번 load 후 삭제해도 됩니다: `rm ~/latin-in-seoul.tar`
 
 #### 3.5.1 앱 로그 파일 (Docker json-file)
 

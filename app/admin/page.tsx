@@ -78,6 +78,12 @@ export default async function AdminPage() {
           >
             + 새 수업 등록
           </Link>
+          <Link
+            href="/admin/ads"
+            className="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 transition-all whitespace-nowrap"
+          >
+            메인 광고 관리
+          </Link>
           <div className="ml-auto">
             <LogoutButton />
           </div>
